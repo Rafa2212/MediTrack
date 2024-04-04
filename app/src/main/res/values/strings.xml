@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MediTrack</string>
+    <string name="user_name">John Doe</string>
+    <string name="user_email">john@example.com</string>
+</resources>
