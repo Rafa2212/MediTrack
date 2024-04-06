@@ -30,8 +30,8 @@ public class MedicationAdapter extends RecyclerView.Adapter<MedicationAdapter.Me
     public void onBindViewHolder(@NonNull MedicationViewHolder holder, int position) {
         Medication medication = medicationList.get(position);
         holder.medicationNameTextView.setText(medication.getMedicationName());
-        holder.dosageTextView.setText(medication.getDosage());
-        holder.frequencyTextView.setText(medication.getFrequency());
+//        holder.dosageTextView.setText(medication.getDosage());
+//        holder.frequencyTextView.setText(medication.getFrequency());
     }
 
     @Override
@@ -41,14 +41,14 @@ public class MedicationAdapter extends RecyclerView.Adapter<MedicationAdapter.Me
 
     public static class MedicationViewHolder extends RecyclerView.ViewHolder {
         TextView medicationNameTextView;
-        TextView dosageTextView;
-        TextView frequencyTextView;
+//        TextView dosageTextView;
+//        TextView frequencyTextView;
 
         public MedicationViewHolder(@NonNull View itemView) {
             super(itemView);
             medicationNameTextView = itemView.findViewById(R.id.medicationNameTextView);
-            dosageTextView = itemView.findViewById(R.id.dosageTextView);
-            frequencyTextView = itemView.findViewById(R.id.frequencyTextView);
+//            dosageTextView = itemView.findViewById(R.id.dosageTextView);
+//            frequencyTextView = itemView.findViewById(R.id.frequencyTextView);
         }
     }
 }

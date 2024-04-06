@@ -3,6 +3,7 @@ package com.example.myapplication;
 import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
@@ -37,14 +38,20 @@ public class AddMedicationActivity extends AppCompatActivity {
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setOnNavigationItemSelectedListener(item -> {
             int itemId = item.getItemId();
-            if (itemId == R.id.page_1) {
-                // Action when first item is selected
-            } else if (itemId == R.id.page_2) {
-                // Action when second item is selected, e.g. start Profile activity
+            if (itemId == R.id.menu_dashboard) {
+                // start Dashboard activity
+            } else if (itemId == R.id.menu_diseases) {
+                startActivity(new Intent(this, AddDiseaseActivity.class));
+            } else if (itemId == R.id.menu_profile) {
                 startActivity(new Intent(this, ProfileSetupActivity.class));
-            } else if (itemId == R.id.page_3) {
-                // Action when third item is selected, e.g. logout
-                startActivity(new Intent(this, LoginActivity.class));
+            } else if(itemId == R.id.menu_help) {
+                // start Help activity
+            } else if (itemId == R.id.menu_logout) {
+                SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                sharedPreferences.edit().clear().apply();
+                Intent intent = new Intent(this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
             }
             return true;
         });
@@ -63,14 +70,12 @@ public class AddMedicationActivity extends AppCompatActivity {
             }
         });
 
-        // RecyclerView setup
         recyclerView = findViewById(R.id.recyclerViewMedications);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         medicationList = new ArrayList<>();
         medicationAdapter = new MedicationAdapter(AddMedicationActivity.this, medicationList);
         recyclerView.setAdapter(medicationAdapter);
 
-        // Load medications from database
         loadMedications();
     }
 
@@ -87,11 +92,9 @@ public class AddMedicationActivity extends AppCompatActivity {
         long newRowId = db.insert(DatabaseHelper.TABLE_MEDICATIONS, null, values);
 
         if (newRowId != -1) {
-            // Successful insertion
             Toast.makeText(this, "Medication added successfully", Toast.LENGTH_SHORT).show();
-            loadMedications(); // Reload medications after adding a new one
+            loadMedications();
         } else {
-            // Insertion failed
             Toast.makeText(this, "Failed to add medication", Toast.LENGTH_SHORT).show();
         }
     }
@@ -106,9 +109,8 @@ public class AddMedicationActivity extends AppCompatActivity {
             while (cursor.moveToNext()) {
                 @SuppressLint("Range") int id = cursor.getInt(cursor.getColumnIndex(DatabaseHelper.COLUMN_MEDICATION_ID));
                 @SuppressLint("Range") String description = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_MEDICATION_DESCRIPTION));
-                @SuppressLint("Range") String frequency = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_FREQUENCY));
 
-                Medication medication = new Medication(id,description, description, frequency);
+                Medication medication = new Medication(id,description);
                 medicationList.add(medication);
             }
             cursor.close();

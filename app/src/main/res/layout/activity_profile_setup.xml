@@ -85,26 +85,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             android:layout_marginTop="16dp" />
 
-    <EditText
-            android:id="@+id/editTextKnownDisease"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:hint="Enter Known Disease"
-            app:layout_constraintTop_toBottomOf="@+id/editTextWeight"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp" />
-
-    <EditText
-            android:id="@+id/editTextKnownMedication"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:hint="Enter Known Medication"
-            app:layout_constraintTop_toBottomOf="@+id/editTextKnownDisease"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginTop="16dp" />
-
     <Button
             android:id="@+id/buttonSubmitProfile"
             android:textColor="#FFFFFF"
@@ -114,7 +94,7 @@
             android:text="Submit"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/editTextKnownMedication"
+            app:layout_constraintTop_toBottomOf="@+id/editTextWeight"
             android:layout_marginTop="16dp"/>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView

@@ -1,16 +1,16 @@
 package com.example.myapplication;
 
 import android.annotation.SuppressLint;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import com.google.android.material.snackbar.Snackbar;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 public class LoginActivity extends AppCompatActivity {
@@ -25,7 +25,7 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        dbHelper = new DatabaseHelper(this);
+        dbHelper = DatabaseHelper.getInstance(this);
 
         editTextUsername = findViewById(R.id.editTextUsername);
         editTextPassword = findViewById(R.id.editTextPassword);
@@ -52,37 +52,26 @@ public class LoginActivity extends AppCompatActivity {
         String password = editTextPassword.getText().toString().trim();
 
         if (username.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Please enter both username and password", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content), "Please enter both username and password", Snackbar.LENGTH_SHORT).show();
             return;
         }
 
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.query(DatabaseHelper.TABLE_USERS,
-                null,
-                DatabaseHelper.COLUMN_USERNAME + " = ? AND " + DatabaseHelper.COLUMN_PASSWORD + " = ?",
-                new String[]{username, password},
-                null, null, null);
+        User user = dbHelper.checkUser(username, password);
 
-        if (cursor != null && cursor.getCount() > 0) {
-            Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show();
-            cursor.moveToFirst();
-            @SuppressLint("Range") String userId = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_USER_ID));
-            onUserLoggedIn(userId);
+        if (user != null) {
+            Snackbar.make(findViewById(android.R.id.content), "Login successful", Snackbar.LENGTH_SHORT).show();
+            onUserLoggedIn(user.getUserId());
 
-            if (!dbHelper.isProfileCompleted(userId)) {
+            if (user.getUserProfile() == null) {
                 startActivity(new Intent(LoginActivity.this, ProfileSetupActivity.class));
             } else {
-                Intent intent = new Intent(this, AddMedicationActivity.class);
+                Intent intent = new Intent(this, AddDiseaseActivity.class);
                 startActivity(intent);
             }
 
             finish();
         } else {
-            Toast.makeText(this, "Invalid username or password", Toast.LENGTH_SHORT).show();
-        }
-
-        if (cursor != null) {
-            cursor.close();
+            Snackbar.make(findViewById(android.R.id.content), "Invalid username or password", Snackbar.LENGTH_SHORT).show();
         }
     }
 
@@ -91,21 +80,16 @@ public class LoginActivity extends AppCompatActivity {
         String password = editTextPassword.getText().toString().trim();
 
         if (!isValidPassword(password)) {
-            Toast.makeText(this, "Password must be at least 8 characters long", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content), "Password must be at least 8 characters long", Snackbar.LENGTH_SHORT).show();
             return;
         }
 
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(DatabaseHelper.COLUMN_USERNAME, username);
-        values.put(DatabaseHelper.COLUMN_PASSWORD, password);
-
-        long newRowId = db.insert(DatabaseHelper.TABLE_USERS, null, values);
+        long newRowId = dbHelper.addUser(username, password);
 
         if (newRowId != -1) {
-            Toast.makeText(this, "Registration successful", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content), "Registration successful", Snackbar.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "Registration failed", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content), "Registration failed", Snackbar.LENGTH_SHORT).show();
         }
     }
 

@@ -1,0 +1,21 @@
+<!-- File: res/layout/edit_disease_dialog.xml -->
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="8dp"
+        android:orientation="vertical">
+
+    <EditText
+            android:id="@+id/editTextDiseaseName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Disease Name" />
+
+    <EditText
+            android:id="@+id/editTextICD10Code"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ICD10 Code" />
+
+</LinearLayout>

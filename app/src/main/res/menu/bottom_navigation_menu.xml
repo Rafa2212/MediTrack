@@ -1,14 +1,22 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-            android:id="@+id/page_1"
-            android:icon="@drawable/ic_baseline_home_24"
-            android:title="Home" />
+            android:id="@+id/menu_dashboard"
+            android:icon="@drawable/ic_dashboard"
+    android:title="Dashboard" />
     <item
-            android:id="@+id/page_2"
-            android:icon="@drawable/ic_baseline_personal_data_24"
+            android:id="@+id/menu_diseases"
+            android:icon="@drawable/ic_diseases"
+    android:title="Diseases" />
+    <item
+            android:id="@+id/menu_profile"
+            android:icon="@drawable/ic_profile"
             android:title="Profile" />
     <item
-            android:id="@+id/page_3"
-            android:icon="@drawable/ic_baseline_logout_24"
+            android:id="@+id/menu_help"
+            android:icon="@drawable/ic_help"
+    android:title="Help" />
+    <item
+            android:id="@+id/menu_logout"
+            android:icon="@drawable/ic_logout"
             android:title="Logout" />
 </menu>

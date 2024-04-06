@@ -19,66 +19,50 @@ import static android.content.Context.MODE_PRIVATE;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 8;
     private static DatabaseHelper instance;
 
-    // Define table names
     public static final String TABLE_USERS = "users";
     public static final String TABLE_MEDICATIONS = "medications";
     public static final String TABLE_USER_MEDICATIONS = "user_medications";
-    public static final String TABLE_QUANTITY = "quantity";
 
-    // Define column names for users table
     public static final String COLUMN_USER_ID = "user_id";
     public static final String COLUMN_USERNAME = "username";
     public static final String COLUMN_PASSWORD = "password";
-    public static final String COLUMN_IS_PROFILE_COMPLETED = "is_profile_completed";
 
-    // Define column names for medications table
     public static final String COLUMN_MEDICATION_ID = "medication_id";
     public static final String COLUMN_MEDICATION_DESCRIPTION = "medication_description";
-    public static final String COLUMN_FREQUENCY = "frequency";
 
-    // Define column names for user_medications table
     public static final String COLUMN_USER_MEDICATION_ID = "user_medication_id";
     public static final String COLUMN_USER_ID_FK = "user_id_fk";
     public static final String COLUMN_MEDICATION_ID_FK = "medication_id_fk";
-    public static final String COLUMN_QUANTITY_ID_FK = "quantity_id_fk";
+    public static final String COLUMN_FREQUENCY = "frequency";
+    public static final String COLUMN_DOSAGE = "dosage";
+    public static final String COLUMN_QUANTITY_LEFT = "quantity_id_fk";
 
-    // Define column names for quantity table
-    public static final String COLUMN_QUANTITY_ID = "quantity_id";
-    public static final String COLUMN_REMAINING_QUANTITY = "remaining_quantity";
-
-    // Create table definition for profile table
     public static final String TABLE_PROFILE = "profile";
     public static final String COLUMN_NAME = "name";
     public static final String COLUMN_AGE = "age";
     public static final String COLUMN_HEIGHT = "height";
     public static final String COLUMN_WEIGHT = "weight";
-    public static final String COLUMN_KNOWN_DISEASE = "known_disease";
-    public static final String COLUMN_KNOWN_MEDICATION = "known_medication";
 
     public static final String TABLE_DISEASES = "diseases";
     public static final String TABLE_USER_DISEASES = "user_diseases";
-//...
 
-    // Define column names for diseases table
     public static final String COLUMN_DISEASE_ID = "disease_id";
-    public static final String COLUMN_DISEASE_DESCRIPTION = "disease_description"; // placeholder, replace as necessary
+    public static final String COLUMN_ICD10 = "icd10";
+    public static final String COLUMN_DISEASE_DESCRIPTION = "disease_description";
 
-    // Define column names for user diseases table
     public static final String COLUMN_USER_DISEASE_ID = "user_disease_id";
     public static final String COLUMN_USER_ID_FK_DISEASE = "user_id_fk_disease";
     public static final String COLUMN_DISEASE_ID_FK = "disease_id_fk";
-//...
 
-    // Create Diseases Table
     private static final String CREATE_TABLE_DISEASES =
             "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES + " (" +
                     COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_DISEASE_DESCRIPTION + " TEXT)";
+                    COLUMN_DISEASE_DESCRIPTION + " TEXT, " +
+                    COLUMN_ICD10 + " TEXT)";
 
-    // Create User Diseases junction table
     private static final String CREATE_TABLE_USER_DISEASES =
             "CREATE TABLE IF NOT EXISTS " + TABLE_USER_DISEASES + " (" +
                     COLUMN_USER_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -93,15 +77,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_NAME + " TEXT, " +
                     COLUMN_AGE + " INTEGER, " +
                     COLUMN_HEIGHT + " FLOAT, " +
-                    COLUMN_WEIGHT + " FLOAT, " +
-                    COLUMN_KNOWN_DISEASE + " TEXT, " +
-                    COLUMN_KNOWN_MEDICATION + " TEXT)";
+                    COLUMN_WEIGHT + " FLOAT) ";
 
     private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS + " (" +
             COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
             COLUMN_USERNAME + " TEXT, " +
-            COLUMN_PASSWORD + " TEXT, " +
-            COLUMN_IS_PROFILE_COMPLETED + " INTEGER DEFAULT 0)";
+            COLUMN_PASSWORD + " TEXT)";
 
     private static final String CREATE_TABLE_MEDICATIONS =
             "CREATE TABLE IF NOT EXISTS " + TABLE_MEDICATIONS + " (" +
@@ -114,15 +95,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_USER_MEDICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
                     COLUMN_USER_ID_FK + " INTEGER, " +
                     COLUMN_MEDICATION_ID_FK + " INTEGER, " +
-                    COLUMN_QUANTITY_ID_FK + " INTEGER, " +
+                    COLUMN_QUANTITY_LEFT + " INTEGER, " +
+                    COLUMN_DOSAGE + " INTEGER, " +
                     "FOREIGN KEY (" + COLUMN_USER_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "), " +
-                    "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "(" + COLUMN_MEDICATION_ID + "), " +
-                    "FOREIGN KEY (" + COLUMN_QUANTITY_ID_FK + ") REFERENCES " + TABLE_QUANTITY + "(" + COLUMN_QUANTITY_ID + "))";
+                    "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "(" + COLUMN_MEDICATION_ID + "))";
 
-    private static final String CREATE_TABLE_QUANTITY =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_QUANTITY + " (" +
-                    COLUMN_QUANTITY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_REMAINING_QUANTITY + " INTEGER)";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -140,7 +117,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_USERS);
         db.execSQL(CREATE_TABLE_MEDICATIONS);
         db.execSQL(CREATE_TABLE_USER_MEDICATIONS);
-        db.execSQL(CREATE_TABLE_QUANTITY);
         db.execSQL(CREATE_TABLE_PROFILE);
         db.execSQL(CREATE_TABLE_DISEASES);
         db.execSQL(CREATE_TABLE_USER_DISEASES);
@@ -148,102 +124,94 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Drop older tables if they exist
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PROFILE);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICATIONS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_MEDICATIONS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_QUANTITY);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_DISEASES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_DISEASES);
 
         onCreate(db);
     }
 
-    public void insertOrUpdateProfile(String userId, String name, int age, float height, float weight, List<Disease> knownDiseases, List<Medication> knownMedications, int isProfileCompleted){
-        SQLiteDatabase db = this.getWritableDatabase();
-
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_USER_ID, userId);
-        values.put(COLUMN_NAME, name);
-        values.put(COLUMN_AGE, age);
-        values.put(COLUMN_HEIGHT, height);
-        values.put(COLUMN_WEIGHT, weight);
-        for (Disease disease : knownDiseases) {
-            ContentValues diseaseValues = new ContentValues();
-            diseaseValues.put(COLUMN_USER_ID_FK_DISEASE, userId);
-            diseaseValues.put(COLUMN_DISEASE_ID_FK, disease.getDiseaseId());
-
-            db.insertWithOnConflict(TABLE_USER_DISEASES, null, diseaseValues, SQLiteDatabase.CONFLICT_REPLACE);
-        }
-        for (Medication medication : knownMedications) {
-            ContentValues diseaseValues = new ContentValues();
-            diseaseValues.put(COLUMN_USER_ID_FK_DISEASE, userId);
-            diseaseValues.put(COLUMN_DISEASE_ID_FK, medication.getMedicationId());
-
-            db.insertWithOnConflict(TABLE_USER_DISEASES, null, diseaseValues, SQLiteDatabase.CONFLICT_REPLACE);
-        }
-        values.put(COLUMN_IS_PROFILE_COMPLETED, isProfileCompleted);
-
-        db.insertWithOnConflict(TABLE_PROFILE, null, values, SQLiteDatabase.CONFLICT_REPLACE);
-
-        db.close();
-    }
-
-    public Cursor getUserProfile(String userId) {
+    public UserProfile getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
         String[] columns = {
                 COLUMN_NAME,
                 COLUMN_AGE,
                 COLUMN_HEIGHT,
-                COLUMN_WEIGHT,
-                COLUMN_KNOWN_DISEASE,
-                COLUMN_KNOWN_MEDICATION
+                COLUMN_WEIGHT
         };
 
-        Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null);
-
-        if (cursor != null) {
-            cursor.moveToFirst();
-        }
-
-        return cursor;
-    }
-
-    public boolean isProfileCompleted(String userId) {
-
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        Cursor cursor = db.query(TABLE_USERS,
-                new String[] {DatabaseHelper.COLUMN_IS_PROFILE_COMPLETED},
-                COLUMN_USER_ID + "=?",
-                new String[] {userId},
-                null, null, null);
-
-        int columnIndex = cursor.getColumnIndex(DatabaseHelper.COLUMN_IS_PROFILE_COMPLETED);
-
-        if(columnIndex != -1 && cursor.moveToFirst()){
-            int isProfileCompleted = cursor.getInt(columnIndex);
+        Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null,null);
+        if (cursor != null && cursor.moveToFirst()) {
+            @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
+            @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
+            @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
+            @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
             cursor.close();
-            db.close();
-            return isProfileCompleted == 1;
+            return new UserProfile(name, age, height, weight);
         }
         cursor.close();
-        db.close();
-        return false;
+        return null;
     }
 
-    public void setProfileCompleted(String userId) {
+    public void insertOrUpdateProfile(String userId, UserProfile userProfile) {
         SQLiteDatabase db = this.getWritableDatabase();
 
-        ContentValues contentValues = new ContentValues();
-        contentValues.put("is_profile_completed", 1);
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_USER_ID, userId);
+        values.put(COLUMN_NAME, userProfile.getName());
+        values.put(COLUMN_AGE, userProfile.getAge());
+        values.put(COLUMN_HEIGHT, userProfile.getHeight());
+        values.put(COLUMN_WEIGHT, userProfile.getWeight());
 
-        db.update(TABLE_USERS,
-                contentValues,
-                COLUMN_USER_ID + " = ?",
-                new String[] {userId});
+        Cursor cursor = db.query(TABLE_PROFILE, null, COLUMN_USER_ID + "=?",
+                new String[]{userId}, null, null, null);
+
+        if(cursor != null && cursor.getCount() > 0) {
+            db.update(TABLE_PROFILE, values, COLUMN_USER_ID + "=?", new String[]{userId});
+        } else {
+            db.insert(TABLE_PROFILE, null, values);
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
         db.close();
+    }
+
+    public User checkUser(String username, String password) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String[] columns = {
+                COLUMN_USER_ID,
+                COLUMN_USERNAME,
+                COLUMN_PASSWORD,
+        };
+
+        Cursor cursor = db.query(TABLE_USERS, columns, COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
+                new String[]{username, password}, null, null, null);
+
+        if (cursor.moveToFirst()) {
+            @SuppressLint("Range") String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+            UserProfile userProfile = getUserProfile(userId);
+            cursor.close();
+            return new User(userId, username, password, userProfile);
+        }
+        cursor.close();
+        return null;
+    }
+
+    public long addUser(String username, String password) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_USERNAME, username);
+        values.put(COLUMN_PASSWORD, password);
+
+        return db.insert(TABLE_USERS, null, values);
     }
 
     public User getUser(String userId) {
@@ -253,36 +221,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_USER_ID,
                 COLUMN_USERNAME,
                 COLUMN_PASSWORD,
-                COLUMN_IS_PROFILE_COMPLETED
         };
 
         Cursor cursor = db.query(TABLE_USERS, columns, COLUMN_USER_ID + "=?",
                 new String[]{userId}, null, null, null);
 
-        if (cursor != null && cursor.moveToFirst()) {
-            @SuppressLint("Range") String username = cursor.getString(cursor.getColumnIndex(COLUMN_USERNAME));
-            @SuppressLint("Range") String password = cursor.getString(cursor.getColumnIndex(COLUMN_PASSWORD));
-            @SuppressLint("Range") int isProfileCompleted = cursor.getInt(cursor.getColumnIndex(COLUMN_IS_PROFILE_COMPLETED));
-
-            cursor.close();
-
-            if (isProfileCompleted == 1) {
-                @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
-                @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
-                @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
-                @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
-                @SuppressLint("Range") List<Disease> diseasesList = getUserDiseases(userId);
-                @SuppressLint("Range") List<Medication> medicationsList = getUserMedications(userId);
-
-                return new User(userId, username, password, true,
-                        name, age, height, weight, diseasesList, medicationsList);
-            } else {
-                // Assume a constructor for User exists that takes only userId, username, password
-                return new User(userId, username, password, false);
+            if (cursor.getCount() == 1 && cursor.moveToFirst()) {
+                @SuppressLint("Range") String username = cursor.getString(cursor.getColumnIndex(COLUMN_USERNAME));
+                @SuppressLint("Range") String password = cursor.getString(cursor.getColumnIndex(COLUMN_PASSWORD));
+                UserProfile userProfile = getUserProfile(userId);
+                cursor.close();
+                return new User(userId, username, password, userProfile);
             }
-        }
-
-        return null;
+            cursor.close();
+            return null;
     }
 
     public List<Disease> getUserDiseases(String userId) {
@@ -300,7 +252,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             do {
                 @SuppressLint("Range") Disease disease = new Disease(
                         cursor.getInt(cursor.getColumnIndex(COLUMN_DISEASE_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_DISEASE_DESCRIPTION))
+                        cursor.getString(cursor.getColumnIndex(COLUMN_DISEASE_DESCRIPTION)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_ICD10))  // Fetch the ICD10 code
                 );
                 diseases.add(disease);
             } while (cursor.moveToNext());
@@ -308,6 +261,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return diseases;
     }
+
     public List<Medication> getUserMedications(String userId) {
         List<Medication> medications = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -323,8 +277,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             do {
                 @SuppressLint("Range") Medication medication = new Medication(
                         cursor.getInt(cursor.getColumnIndex(COLUMN_MEDICATION_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEDICATION_DESCRIPTION)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEDICATION_DESCRIPTION)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_MEDICATION_DESCRIPTION))
                 );
                 medications.add(medication);
