@@ -7,12 +7,16 @@ public class UserProfile {
     private int age;
     private float height;
     private float weight;
+    private int bloodPressure;
+    private int heartRate;
 
-    public UserProfile(String name, int age, float height, float weight) {
+    public UserProfile(String name, int age, float height, float weight, int bloodPressure, int heartrate) {
         this.name = name;
         this.age = age;
         this.height = height;
         this.weight = weight;
+        this.bloodPressure = bloodPressure;
+        this.heartRate = heartrate;
     }
 
     public String getName() {
@@ -27,24 +31,19 @@ public class UserProfile {
         return age;
     }
 
-    public void setAge(int age) {
-        this.age = age;
-    }
-
     public float getHeight() {
         return height;
-    }
-
-    public void setHeight(float height) {
-        this.height = height;
     }
 
     public float getWeight() {
         return weight;
     }
 
-    public void setWeight(float weight) {
-        this.weight = weight;
+    public int getBloodPressure() {
+        return bloodPressure;
     }
 
+    public int getHeartrate() {
+        return heartRate;
+    }
 }

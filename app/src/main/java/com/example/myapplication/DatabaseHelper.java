@@ -19,7 +19,7 @@ import static android.content.Context.MODE_PRIVATE;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 8;
+    private static final int DATABASE_VERSION = 12;
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
@@ -45,6 +45,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_AGE = "age";
     public static final String COLUMN_HEIGHT = "height";
     public static final String COLUMN_WEIGHT = "weight";
+    public static final String COLUMN_BLOOD_PRESSURE = "blood_pressure";
+    public static final String COLUMN_HEARTRATE = "heartrate";
 
     public static final String TABLE_DISEASES = "diseases";
     public static final String TABLE_USER_DISEASES = "user_diseases";
@@ -77,6 +79,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_NAME + " TEXT, " +
                     COLUMN_AGE + " INTEGER, " +
                     COLUMN_HEIGHT + " FLOAT, " +
+                    COLUMN_BLOOD_PRESSURE + " INTEGER, " +
+                    COLUMN_HEARTRATE + " INTEGER, " +
                     COLUMN_WEIGHT + " FLOAT) ";
 
     private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS + " (" +
@@ -141,7 +145,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_NAME,
                 COLUMN_AGE,
                 COLUMN_HEIGHT,
-                COLUMN_WEIGHT
+                COLUMN_WEIGHT,
+                COLUMN_BLOOD_PRESSURE,
+                COLUMN_HEARTRATE
         };
 
         Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null,null);
@@ -150,8 +156,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
             @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
             @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
+            @SuppressLint("Range") int bloodPresure = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE));
+            @SuppressLint("Range") int heartrate = cursor.getInt(cursor.getColumnIndex(COLUMN_HEARTRATE));
             cursor.close();
-            return new UserProfile(name, age, height, weight);
+            return new UserProfile(name, age, height, weight, bloodPresure, heartrate);
         }
         cursor.close();
         return null;
@@ -166,6 +174,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_AGE, userProfile.getAge());
         values.put(COLUMN_HEIGHT, userProfile.getHeight());
         values.put(COLUMN_WEIGHT, userProfile.getWeight());
+        values.put(COLUMN_BLOOD_PRESSURE, userProfile.getBloodPressure());
+        values.put(COLUMN_HEARTRATE, userProfile.getHeartrate());
 
         Cursor cursor = db.query(TABLE_PROFILE, null, COLUMN_USER_ID + "=?",
                 new String[]{userId}, null, null, null);
@@ -253,8 +263,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 @SuppressLint("Range") Disease disease = new Disease(
                         cursor.getInt(cursor.getColumnIndex(COLUMN_DISEASE_ID)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_DISEASE_DESCRIPTION)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_ICD10))  // Fetch the ICD10 code
-                );
+                        cursor.getString(cursor.getColumnIndex(COLUMN_ICD10))                );
                 diseases.add(disease);
             } while (cursor.moveToNext());
         }
@@ -262,27 +271,4 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return diseases;
     }
 
-    public List<Medication> getUserMedications(String userId) {
-        List<Medication> medications = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        Cursor cursor = db.rawQuery(
-                "SELECT * FROM " + TABLE_USER_MEDICATIONS +
-                        " JOIN " + TABLE_MEDICATIONS +
-                        " ON " + COLUMN_MEDICATION_ID_FK + " = " + COLUMN_MEDICATION_ID +
-                        " WHERE " + COLUMN_USER_MEDICATION_ID + " = ?",
-                new String[]{userId}
-        );
-        if (cursor.moveToFirst()) {
-            do {
-                @SuppressLint("Range") Medication medication = new Medication(
-                        cursor.getInt(cursor.getColumnIndex(COLUMN_MEDICATION_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEDICATION_DESCRIPTION))
-                );
-                medications.add(medication);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        return medications;
-    }
 }

@@ -3,6 +3,7 @@
     <color name="black">#FF000000</color>
     <color name="logoColor">#74aedb</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="logoColorRed">#d76b73</color>
     <color name="login_edittext_background_tint">#E0E0E0</color>
     <color name="transparent">#00000000</color>
 </resources>
