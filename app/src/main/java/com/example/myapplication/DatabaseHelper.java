@@ -3,30 +3,23 @@ package com.example.myapplication;
 import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.ContentValues;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.provider.ContactsContract;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import static android.content.Context.MODE_PRIVATE;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 12;
+    private static final int DATABASE_VERSION = 17;
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
     public static final String TABLE_MEDICATIONS = "medications";
     public static final String TABLE_USER_MEDICATIONS = "user_medications";
 
-    public static final String COLUMN_USER_ID = "user_id";
+    public static final String COLUMN_USER_ID = "id";
     public static final String COLUMN_USERNAME = "username";
     public static final String COLUMN_PASSWORD = "password";
 
@@ -51,13 +44,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String TABLE_DISEASES = "diseases";
     public static final String TABLE_USER_DISEASES = "user_diseases";
 
-    public static final String COLUMN_DISEASE_ID = "disease_id";
+    public static final String COLUMN_DISEASE_ID = "id";
     public static final String COLUMN_ICD10 = "icd10";
     public static final String COLUMN_DISEASE_DESCRIPTION = "disease_description";
 
-    public static final String COLUMN_USER_DISEASE_ID = "user_disease_id";
-    public static final String COLUMN_USER_ID_FK_DISEASE = "user_id_fk_disease";
-    public static final String COLUMN_DISEASE_ID_FK = "disease_id_fk";
+    public static final String COLUMN_USER_DISEASE_ID = "id";
+    public static final String COLUMN_USER_ID_FK_DISEASE = "id_fk_user";
+    public static final String COLUMN_DISEASE_ID_FK = "id_fk_disease";
+
+    public static final String TABLE_SHAREDPREF = "sharedpref";
+    public static final String COLUMN_SHAREDPREF_ID = "id";
+    public static final String COLUMN_SHAREDPREF_USER_ID = "id_user";
+    public static final String COLUMN_SHAREDPREF_KEY = "key_string";
+    public static final String COLUMN_SHAREDPREF_VALUE = "value";
 
     private static final String CREATE_TABLE_DISEASES =
             "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES + " (" +
@@ -104,6 +103,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     "FOREIGN KEY (" + COLUMN_USER_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "), " +
                     "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "(" + COLUMN_MEDICATION_ID + "))";
 
+    private static final String CREATE_TABLE_SHAREDPREF =
+            "CREATE TABLE IF NOT EXISTS " + TABLE_SHAREDPREF + " (" +
+                    COLUMN_SHAREDPREF_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    COLUMN_SHAREDPREF_USER_ID + " INTEGER, " +
+                    COLUMN_SHAREDPREF_KEY + " TEXT, " +
+                    COLUMN_SHAREDPREF_VALUE + " TEXT)";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -124,6 +129,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_PROFILE);
         db.execSQL(CREATE_TABLE_DISEASES);
         db.execSQL(CREATE_TABLE_USER_DISEASES);
+        db.execSQL(CREATE_TABLE_SHAREDPREF);
     }
 
     @Override
@@ -134,6 +140,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_MEDICATIONS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_DISEASES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_DISEASES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_SHAREDPREF);
 
         onCreate(db);
     }
@@ -245,6 +252,40 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
             cursor.close();
             return null;
+    }
+
+    public long insertOnSession(String userId, String key, String value) {
+
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_USER_ID, userId);
+        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_KEY, key);
+        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_VALUE, value);
+
+        long id = db.insert(DatabaseHelper.TABLE_SHAREDPREF, null, contentValues);
+        return id;
+    }
+
+    public Session getSession(long id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        Cursor cursor = db.query(DatabaseHelper.TABLE_SHAREDPREF,
+                new String[]{DatabaseHelper.COLUMN_SHAREDPREF_ID, DatabaseHelper.COLUMN_SHAREDPREF_USER_ID, DatabaseHelper.COLUMN_SHAREDPREF_KEY, DatabaseHelper.COLUMN_SHAREDPREF_VALUE},
+                DatabaseHelper.COLUMN_SHAREDPREF_ID + "=?",
+                new String[]{String.valueOf(id)},
+                null, null, null);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            @SuppressLint("Range") Session session = new Session(
+                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_ID)),
+                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_USER_ID)),
+                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_KEY)),
+                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_VALUE))
+            );
+            cursor.close();
+            return session;
+        }
+
+        return null;
     }
 
     public List<Disease> getUserDiseases(String userId) {

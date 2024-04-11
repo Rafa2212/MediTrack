@@ -3,7 +3,6 @@ package com.example.myapplication;
 import android.annotation.SuppressLint;
 import android.app.ActivityOptions;
 import android.app.Dialog;
-import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -29,7 +28,7 @@ import com.theokanning.openai.runs.RunCreateRequest;
 import com.theokanning.openai.service.OpenAiService;
 import com.theokanning.openai.threads.Thread;
 import com.theokanning.openai.threads.ThreadRequest;
-
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -47,10 +46,20 @@ public class ProfileSetupActivity extends AppCompatActivity {
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.menu_profile);
+
+        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String curr_user = sharedPreferences.getString("userId", "");
+
         bottomNav.setOnNavigationItemSelectedListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.menu_dashboard) {
-                // start Dashboard activity
+                Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
+                getWindow().setSharedElementExitTransition(fade);
+
+                Intent intent = new Intent(this, DashboardActivity.class);
+                ActivityOptions options = ActivityOptions
+                        .makeSceneTransitionAnimation(this, bottomNav, "bottomNavTransition");
+                startActivity(intent, options.toBundle());
             } else if (itemId == R.id.menu_diseases) {
                 Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
                 getWindow().setSharedElementExitTransition(fade);
@@ -70,8 +79,8 @@ public class ProfileSetupActivity extends AppCompatActivity {
             } else if(itemId == R.id.menu_help) {
                 // start Help activity
             } else if (itemId == R.id.menu_logout) {
-                SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                 sharedPreferences.edit().clear().apply();
+
                 Intent intent = new Intent(this, LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
@@ -89,10 +98,7 @@ public class ProfileSetupActivity extends AppCompatActivity {
 
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
 
-        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-        String userId = sharedPreferences.getString("userId", "");
-
-        User user = dbHelper.getUser(userId);
+        User user = dbHelper.getUser(curr_user);
 
         if (user != null && user.getUserProfile() != null) {
             UserProfile userProfile = user.getUserProfile();
@@ -141,9 +147,10 @@ public class ProfileSetupActivity extends AppCompatActivity {
                     int heartrate = Integer.parseInt(hrTxt);
 
                     UserProfile userProfile = new UserProfile(name, age, height, weight, bloodPressure, heartrate);
-                    dbHelper.insertOrUpdateProfile(userId, userProfile);
+                    dbHelper.insertOrUpdateProfile(curr_user, userProfile);
 
-                    float BMI = weight / (height * height);
+                    float heightInMeters = height / 100;
+                    float BMI = weight / (heightInMeters * heightInMeters);
 
                     boolean exists = false;
 
@@ -192,14 +199,15 @@ public class ProfileSetupActivity extends AppCompatActivity {
                                         retrievedRun = service.retrieveRun(thread.getId(), run.getId());
                                     }
                                     while (!(retrievedRun.getStatus().equals("completed")) && !(retrievedRun.getStatus().equals("failed")));
-
                                     OpenAiResponse<Message> response = service.listMessages(thread.getId());
-
                                     Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
+                                    String bmiResponse = respMsg.getContent().get(0).getText().
+                                            getValue().replace('*', ' ').replace('#', ' ');
+                                    String key = "BMI#" + BMI + "#" + LocalDateTime.now();
+                                    long bmiId = dbHelper.insertOnSession(curr_user, key, bmiResponse);
 
                                     SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
-                                    editor.putString("BMI#" + String.valueOf(BMI), respMsg.getContent().get(0).getText().
-                                            getValue().replace('*', ' ').replace('#', ' '));
+                                    editor.putString(key, String.valueOf(bmiId));
                                     editor.apply();
 
                                     dialog.dismiss();

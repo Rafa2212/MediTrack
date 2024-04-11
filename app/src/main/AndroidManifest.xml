@@ -38,6 +38,7 @@
 
         <!-- Declare AddDiseaseActivity -->
         <activity android:name=".AddDiseaseActivity"/>
+        <activity android:name=".DashboardActivity"/>
 
         <!-- Add other activities if any -->
     </application>

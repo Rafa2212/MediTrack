@@ -1,5 +1,11 @@
 <resources>
     <string name="app_name">MediTrack</string>
-    <string name="user_name">John Doe</string>
-    <string name="user_email">john@example.com</string>
+    <string name="bmi_title">BMI</string>
+    <string name="bmi_description">Benefits of Calculating BMI:\nScreening Tool for Weight
+        Categories: BMI is a widely used tool to screen for potential weight problems for adults. It helps in
+        categorizing individuals as underweight, normal weight, overweight, or obese based on their BMI score, providing
+        a quick initial indication of their health related to their weight.
+    </string>
+    <string name="bmi_my_evaluation">Get my evaluation</string>
+    <string name="bmi_value"></string>
 </resources>

@@ -12,11 +12,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.transition.Transition;
 import android.transition.TransitionInflater;
-import android.view.LayoutInflater;
-import android.view.View;
 import android.widget.*;
-
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -31,11 +27,7 @@ import com.theokanning.openai.runs.RunCreateRequest;
 import com.theokanning.openai.service.OpenAiService;
 import com.theokanning.openai.threads.Thread;
 import com.theokanning.openai.threads.ThreadRequest;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -57,7 +49,13 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
         bottomNav.setOnNavigationItemSelectedListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.menu_dashboard) {
-                // start Dashboard activity
+                Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
+                getWindow().setSharedElementExitTransition(fade);
+
+                Intent intent = new Intent(this, DashboardActivity.class);
+                ActivityOptions options = ActivityOptions
+                        .makeSceneTransitionAnimation(this, bottomNav, "bottomNavTransition");
+                startActivity(intent, options.toBundle());
             } else if (itemId == R.id.menu_diseases) {
                 Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
                 getWindow().setSharedElementExitTransition(fade);
@@ -79,6 +77,7 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
             } else if (itemId == R.id.menu_logout) {
                 SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                 sharedPreferences.edit().clear().apply();
+
                 Intent intent = new Intent(this, LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
@@ -140,8 +139,7 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
                     long newUserDiseaseRowId = db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
 
                     if (newUserDiseaseRowId != -1) {
-                        //TODO: verificare dupa nume daca exista (nu dupa id care oricum e altul de fiecare data cand adaugi un disease nou)
-                        //TODO: creeare baza de date cu ceea ce exista in sesiune (coloana cu id-ul userului curent, string ul ce e ca si cheie si valoarea lui)
+
                         final Dialog dialog = new Dialog(AddDiseaseActivity.this);
 
                         dialog.setContentView(R.layout.custom_dialog);
@@ -161,7 +159,7 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
                         Map<String, ?> allEntries = preferences.getAll();
                         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
                             String[] key = entry.getKey().split("#");
-                            if (Objects.equals(key[0], "Disease") && Objects.equals(key[1], String.valueOf(newUserDiseaseRowId))) {
+                            if (Objects.equals(key[0], "Disease") && Objects.equals(key[1], icd10Code)) {
                                 exists = true;
                             }
                         }
@@ -183,7 +181,8 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
 
                                         UserProfile userProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
 
-                                        String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight() + " cm " + " and " + userProfile.getWeight() + " kg and " + icd10Code + " ICD10 disease code.";
+                                        String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight() + " cm " + " and " + userProfile.getWeight() + " kg and " + icd10Code + " ICD10 disease code. " +
+                                                "Information that may help you in prescribing tratment: blood pressure is " + userProfile.getBloodPressure() + "mmHG and heartrate " + userProfile.getHeartrate() + "BPM.";
 
                                         MessageRequest messageRequest = MessageRequest.builder()
                                                 .role("user")
@@ -205,14 +204,14 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
                                         while (!(retrievedRun.getStatus().equals("completed")) && !(retrievedRun.getStatus().equals("failed")));
 
                                         OpenAiResponse<Message> response = service.listMessages(thread.getId());
-
                                         Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
-
                                         String diseaseResponse = respMsg.getContent().get(0).getText().
                                                 getValue().replace('*', ' ').replace('#', ' ');
+                                        String key = "Disease#" + icd10Code;
+                                        long diseaseId = dbHelper.insertOnSession(CURRENT_USER_ID, key, diseaseResponse);
 
                                         SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
-                                        editor.putString("Disease#" + newUserDiseaseRowId, diseaseResponse);
+                                        editor.putString(key, String.valueOf(diseaseId));
                                         editor.apply();
 
                                         dialog.dismiss();
@@ -326,6 +325,14 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
         int deletedRows = db.delete(DatabaseHelper.TABLE_USER_DISEASES, whereClause, whereArgs);
 
         if (deletedRows > 0) {
+            SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+            String key = "Disease#" + disease.getICD10();
+            if (preferences.contains(key)) {
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.remove(key);
+                editor.apply();
+            }
+
             Snackbar.make(findViewById(android.R.id.content), "Disease deleted successfully!", Snackbar.LENGTH_SHORT).show();
             loadDiseases();
         } else {
