@@ -41,7 +41,7 @@ public class DashboardActivity extends AppCompatActivity {
 
         dbHelper = new DatabaseHelper(this);
         //mBmiWidget = findViewById(R.id.bmi_widget);
-        bDescription = findViewById(R.id.bDescription);
+        //bDescription = findViewById(R.id.bDescription);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         bottomNav.setSelectedItemId(R.id.menu_dashboard);
