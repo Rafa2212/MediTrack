@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                                                   xmlns:app="http://schemas.android.com/apk/res-auto"
-                                                   xmlns:tools="http://schemas.android.com/tools"
-                                                   android:layout_width="match_parent"
-                                                   android:layout_height="match_parent">
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
 
-    <!--1. Dashboard title image -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
     <ImageView
             android:id="@+id/image"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:contentDescription="Image"
+            android:contentDescription="@string/dashboard"
             android:scaleType="centerCrop"
             android:layout_marginTop="25dp"
-            android:src="@drawable/dashboard_title"
+            android:src="@drawable/title_dashboard"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-    <!--2. BMI card view -->
     <com.google.android.material.card.MaterialCardView
             android:id="@+id/BMI_widget"
             style="@style/Widget.MaterialComponents.CardView"
@@ -42,9 +43,9 @@
                     android:id="@+id/BMIimage"
                     android:layout_width="match_parent"
                     android:layout_height="150dp"
-                    android:contentDescription="Image"
+                    android:contentDescription="@string/bmi_image"
                     android:scaleType="centerCrop"
-                    app:srcCompat="@drawable/bmi" />
+                    app:srcCompat="@drawable/background_bmi" />
 
             <LinearLayout
                     android:layout_width="match_parent"
@@ -74,20 +75,18 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!--3. Interpretations title view -->
     <ImageView
             android:id="@+id/image_interpretation"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:contentDescription="Image"
+            android:contentDescription="@string/interpretations"
             android:scaleType="centerCrop"
             android:layout_marginTop="25dp"
-            android:src="@drawable/interpretations_title"
+            android:src="@drawable/title_interpretations"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/BMI_widget" />
 
-    <!--4. Carousel recycler view -->
     <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/disease_recyclerview"
             android:layout_width="500dp"
@@ -98,25 +97,14 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/image_interpretation" />
 
-    <ImageView
-            android:id="@+id/left_arrow"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:src="@drawable/ic_arrow_left"
-            android:layout_marginEnd="16dp"
-            app:layout_constraintEnd_toStartOf="@id/disease_recyclerview"
-            app:layout_constraintTop_toTopOf="@id/disease_recyclerview"
-            app:layout_constraintBottom_toBottomOf="@id/disease_recyclerview" />
-
-    <ImageView
-            android:id="@+id/right_arrow"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:src="@drawable/ic_arrow_right"
-            android:layout_marginStart="16dp"
-            app:layout_constraintStart_toEndOf="@id/disease_recyclerview"
-            app:layout_constraintTop_toTopOf="@id/disease_recyclerview"
-            app:layout_constraintBottom_toBottomOf="@id/disease_recyclerview" />
+        <TextView
+                android:id="@+id/disease_subtext"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/scroll_through_interpretations"
+                app:layout_constraintTop_toBottomOf="@id/disease_recyclerview"
+                app:layout_constraintStart_toStartOf="@id/disease_recyclerview"
+                app:layout_constraintEnd_toEndOf="@id/disease_recyclerview"/>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"
@@ -128,4 +116,5 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:menu="@menu/bottom_navigation_menu" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

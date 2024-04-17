@@ -17,7 +17,5 @@
                 android:background="?attr/colorPrimary"
                 app:popupTheme="@style/AppTheme.PopupOverlay" />
 
-
     </RelativeLayout>
-
 </androidx.drawerlayout.widget.DrawerLayout>

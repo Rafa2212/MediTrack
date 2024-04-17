@@ -1,14 +1,12 @@
 package com.example.myapplication;
 
-import java.util.List;
-
 public class UserProfile {
     private String name;
-    private int age;
-    private float height;
-    private float weight;
-    private int bloodPressure;
-    private int heartRate;
+    private final int age;
+    private final float height;
+    private final float weight;
+    private final int bloodPressure;
+    private final int heartRate;
 
     public UserProfile(String name, int age, float height, float weight, int bloodPressure, int heartrate) {
         this.name = name;

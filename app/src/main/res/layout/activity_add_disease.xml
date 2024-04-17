@@ -7,7 +7,7 @@
                                                    tools:context=".AddDiseaseActivity">
 
     <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/editTextDiseaseNameLayout"
+            android:id="@+id/editTextICD10CodeLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -19,29 +19,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            android:hint="Disease Name">
-
-        <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/editTextDiseaseName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/editTextICD10CodeLayout"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="24dp"
-            app:boxStrokeColor="@color/logoColorRed"
-            app:hintTextColor="@color/logoColorRed"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/editTextDiseaseNameLayout"
-            android:hint="ICD10 Code">
+            android:hint="@string/icd10_code">
 
         <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/editTextICD10Code"
@@ -55,8 +33,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="Save"
-            android:textColor="#FFFFFF"
+            android:text="@string/save"
+            android:textColor="@color/black"
             android:backgroundTint="@color/logoColor"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"

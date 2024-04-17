@@ -6,11 +6,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import java.util.ArrayList;
-import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
-
     private static final String DATABASE_NAME = "medications.db";
     private static final int DATABASE_VERSION = 17;
     private static DatabaseHelper instance;
@@ -58,57 +55,45 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_SHAREDPREF_KEY = "key_string";
     public static final String COLUMN_SHAREDPREF_VALUE = "value";
 
-    private static final String CREATE_TABLE_DISEASES =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES + " (" +
-                    COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_DISEASE_DESCRIPTION + " TEXT, " +
-                    COLUMN_ICD10 + " TEXT)";
+    private static final String CREATE_TABLE_DISEASES = "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES
+            + " (" + COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_DISEASE_DESCRIPTION + " TEXT, " + COLUMN_ICD10 + " TEXT)";
 
-    private static final String CREATE_TABLE_USER_DISEASES =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_USER_DISEASES + " (" +
-                    COLUMN_USER_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_USER_ID_FK_DISEASE + " INTEGER, " +
-                    COLUMN_DISEASE_ID_FK + " INTEGER, " +
-                    "FOREIGN KEY (" + COLUMN_USER_ID_FK_DISEASE + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "), " +
-                    "FOREIGN KEY (" + COLUMN_DISEASE_ID_FK + ") REFERENCES " + TABLE_DISEASES + "(" + COLUMN_DISEASE_ID + "))";
+    private static final String CREATE_TABLE_USER_DISEASES = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_USER_DISEASES + " (" + COLUMN_USER_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_USER_ID_FK_DISEASE + " INTEGER, " + COLUMN_DISEASE_ID_FK + " INTEGER, "
+            + "FOREIGN KEY (" + COLUMN_USER_ID_FK_DISEASE + ") REFERENCES " + TABLE_USERS + "("
+            + COLUMN_USER_ID + "), "
+            + "FOREIGN KEY (" + COLUMN_DISEASE_ID_FK + ") REFERENCES " + TABLE_DISEASES + "("
+            + COLUMN_DISEASE_ID + "))";
 
-    private static final String CREATE_TABLE_PROFILE =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_PROFILE + " (" +
-                    COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_NAME + " TEXT, " +
-                    COLUMN_AGE + " INTEGER, " +
-                    COLUMN_HEIGHT + " FLOAT, " +
-                    COLUMN_BLOOD_PRESSURE + " INTEGER, " +
-                    COLUMN_HEARTRATE + " INTEGER, " +
-                    COLUMN_WEIGHT + " FLOAT) ";
+    private static final String CREATE_TABLE_PROFILE = "CREATE TABLE IF NOT EXISTS " + TABLE_PROFILE
+            + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_NAME + " TEXT, "
+            + COLUMN_AGE + " INTEGER, " + COLUMN_HEIGHT + " FLOAT, " + COLUMN_BLOOD_PRESSURE
+            + " INTEGER, " + COLUMN_HEARTRATE + " INTEGER, " + COLUMN_WEIGHT + " FLOAT) ";
 
-    private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS + " (" +
-            COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-            COLUMN_USERNAME + " TEXT, " +
-            COLUMN_PASSWORD + " TEXT)";
+    private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS
+            + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USERNAME + " TEXT, "
+            + COLUMN_PASSWORD + " TEXT)";
 
-    private static final String CREATE_TABLE_MEDICATIONS =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_MEDICATIONS + " (" +
-                    COLUMN_MEDICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_MEDICATION_DESCRIPTION + " TEXT, " +
-                    COLUMN_FREQUENCY + " TEXT)";
+    private static final String CREATE_TABLE_MEDICATIONS = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_MEDICATIONS + " (" + COLUMN_MEDICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_MEDICATION_DESCRIPTION + " TEXT, " + COLUMN_FREQUENCY + " TEXT)";
 
-    private static final String CREATE_TABLE_USER_MEDICATIONS =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_USER_MEDICATIONS + " (" +
-                    COLUMN_USER_MEDICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_USER_ID_FK + " INTEGER, " +
-                    COLUMN_MEDICATION_ID_FK + " INTEGER, " +
-                    COLUMN_QUANTITY_LEFT + " INTEGER, " +
-                    COLUMN_DOSAGE + " INTEGER, " +
-                    "FOREIGN KEY (" + COLUMN_USER_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "), " +
-                    "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "(" + COLUMN_MEDICATION_ID + "))";
+    private static final String CREATE_TABLE_USER_MEDICATIONS = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_USER_MEDICATIONS + " (" + COLUMN_USER_MEDICATION_ID
+            + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USER_ID_FK + " INTEGER, "
+            + COLUMN_MEDICATION_ID_FK + " INTEGER, " + COLUMN_QUANTITY_LEFT + " INTEGER, " + COLUMN_DOSAGE
+            + " INTEGER, "
+            + "FOREIGN KEY (" + COLUMN_USER_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID
+            + "), "
+            + "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "("
+            + COLUMN_MEDICATION_ID + "))";
 
-    private static final String CREATE_TABLE_SHAREDPREF =
-            "CREATE TABLE IF NOT EXISTS " + TABLE_SHAREDPREF + " (" +
-                    COLUMN_SHAREDPREF_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                    COLUMN_SHAREDPREF_USER_ID + " INTEGER, " +
-                    COLUMN_SHAREDPREF_KEY + " TEXT, " +
-                    COLUMN_SHAREDPREF_VALUE + " TEXT)";
+    private static final String CREATE_TABLE_SHAREDPREF = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_SHAREDPREF + " (" + COLUMN_SHAREDPREF_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_SHAREDPREF_USER_ID + " INTEGER, " + COLUMN_SHAREDPREF_KEY + " TEXT, "
+            + COLUMN_SHAREDPREF_VALUE + " TEXT)";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -148,26 +133,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public UserProfile getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        String[] columns = {
-                COLUMN_NAME,
-                COLUMN_AGE,
-                COLUMN_HEIGHT,
-                COLUMN_WEIGHT,
-                COLUMN_BLOOD_PRESSURE,
-                COLUMN_HEARTRATE
-        };
+        String[] columns = {COLUMN_NAME, COLUMN_AGE, COLUMN_HEIGHT, COLUMN_WEIGHT,
+                COLUMN_BLOOD_PRESSURE, COLUMN_HEARTRATE};
 
-        Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null,null);
+        Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[] {userId},
+                null, null, null, null);
         if (cursor != null && cursor.moveToFirst()) {
             @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
             @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
             @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
             @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
-            @SuppressLint("Range") int bloodPresure = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE));
+            @SuppressLint("Range")
+            int bloodPresure = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE));
             @SuppressLint("Range") int heartrate = cursor.getInt(cursor.getColumnIndex(COLUMN_HEARTRATE));
             cursor.close();
             return new UserProfile(name, age, height, weight, bloodPresure, heartrate);
         }
+        assert cursor != null;
         cursor.close();
         return null;
     }
@@ -184,11 +166,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_BLOOD_PRESSURE, userProfile.getBloodPressure());
         values.put(COLUMN_HEARTRATE, userProfile.getHeartrate());
 
-        Cursor cursor = db.query(TABLE_PROFILE, null, COLUMN_USER_ID + "=?",
-                new String[]{userId}, null, null, null);
+        Cursor cursor = db.query(
+                TABLE_PROFILE, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
 
-        if(cursor != null && cursor.getCount() > 0) {
-            db.update(TABLE_PROFILE, values, COLUMN_USER_ID + "=?", new String[]{userId});
+        if (cursor != null && cursor.getCount() > 0) {
+            db.update(TABLE_PROFILE, values, COLUMN_USER_ID + "=?", new String[] {userId});
         } else {
             db.insert(TABLE_PROFILE, null, values);
         }
@@ -208,14 +190,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_PASSWORD,
         };
 
-        Cursor cursor = db.query(TABLE_USERS, columns, COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
-                new String[]{username, password}, null, null, null);
+        Cursor cursor =
+                db.query(TABLE_USERS, columns, COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
+                        new String[] {username, password}, null, null, null);
 
         if (cursor.moveToFirst()) {
-            @SuppressLint("Range") String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+            @SuppressLint("Range")
+            String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
             UserProfile userProfile = getUserProfile(userId);
             cursor.close();
-            return new User(userId, username, password, userProfile);
+            return new User(userId, userProfile);
         }
         cursor.close();
         return null;
@@ -240,76 +224,46 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_PASSWORD,
         };
 
-        Cursor cursor = db.query(TABLE_USERS, columns, COLUMN_USER_ID + "=?",
-                new String[]{userId}, null, null, null);
+        Cursor cursor = db.query(
+                TABLE_USERS, columns, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
 
         if (cursor.getCount() == 1 && cursor.moveToFirst()) {
-            @SuppressLint("Range") String username = cursor.getString(cursor.getColumnIndex(COLUMN_USERNAME));
-            @SuppressLint("Range") String password = cursor.getString(cursor.getColumnIndex(COLUMN_PASSWORD));
             UserProfile userProfile = getUserProfile(userId);
             cursor.close();
-            return new User(userId, username, password, userProfile);
+            return new User(userId, userProfile);
         }
         cursor.close();
         return null;
     }
 
     public long insertOnSession(String userId, String key, String value) {
-
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
         contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_USER_ID, userId);
         contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_KEY, key);
         contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_VALUE, value);
 
-        long id = db.insert(DatabaseHelper.TABLE_SHAREDPREF, null, contentValues);
-        return id;
+        return db.insert(DatabaseHelper.TABLE_SHAREDPREF, null, contentValues);
     }
 
     public Session getSession(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.query(DatabaseHelper.TABLE_SHAREDPREF,
-                new String[]{DatabaseHelper.COLUMN_SHAREDPREF_ID, DatabaseHelper.COLUMN_SHAREDPREF_USER_ID, DatabaseHelper.COLUMN_SHAREDPREF_KEY, DatabaseHelper.COLUMN_SHAREDPREF_VALUE},
-                DatabaseHelper.COLUMN_SHAREDPREF_ID + "=?",
-                new String[]{String.valueOf(id)},
-                null, null, null);
+                new String[] {DatabaseHelper.COLUMN_SHAREDPREF_ID, DatabaseHelper.COLUMN_SHAREDPREF_USER_ID,
+                        DatabaseHelper.COLUMN_SHAREDPREF_KEY, DatabaseHelper.COLUMN_SHAREDPREF_VALUE},
+                DatabaseHelper.COLUMN_SHAREDPREF_ID + "=?", new String[] {String.valueOf(id)}, null, null,
+                null);
 
         if (cursor != null && cursor.moveToFirst()) {
-            @SuppressLint("Range") Session session = new Session(
-                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_ID)),
-                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_USER_ID)),
-                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_KEY)),
-                    cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_VALUE))
-            );
+            @SuppressLint("Range")
+            Session session =
+                    new Session(cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_ID)),
+                            cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_KEY)),
+                            cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_VALUE)));
             cursor.close();
             return session;
         }
 
         return null;
     }
-
-    public List<Disease> getUserDiseases(String userId) {
-        List<Disease> diseases = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        Cursor cursor = db.rawQuery(
-                "SELECT * FROM " + TABLE_USER_DISEASES +
-                        " JOIN " + TABLE_DISEASES +
-                        " ON " + COLUMN_DISEASE_ID_FK + " = " + COLUMN_DISEASE_ID +
-                        " WHERE " + COLUMN_USER_ID_FK_DISEASE + " = ?",
-                new String[]{userId}
-        );
-        if (cursor.moveToFirst()) {
-            do {
-                @SuppressLint("Range") Disease disease = new Disease(
-                        cursor.getInt(cursor.getColumnIndex(COLUMN_DISEASE_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_DISEASE_DESCRIPTION)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_ICD10))                );
-                diseases.add(disease);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        return diseases;
-    }
-
 }

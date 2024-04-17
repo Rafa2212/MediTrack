@@ -11,13 +11,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class DiseaseAdapter extends RecyclerView.Adapter<DiseaseAdapter.DiseaseViewHolder> {
-
-    private Context context;
-    private List<Disease> diseaseList;
-
+    private final Context context;
+    private final List<Disease> diseaseList;
     OnDiseaseActionListener onDiseaseActionListener;
 
-    public DiseaseAdapter(Context context, List<Disease> diseaseList, OnDiseaseActionListener onDiseaseActionListener) {
+    public DiseaseAdapter(
+            Context context, List<Disease> diseaseList, OnDiseaseActionListener onDiseaseActionListener) {
         this.context = context;
         this.diseaseList = diseaseList;
         this.onDiseaseActionListener = onDiseaseActionListener;
@@ -36,7 +35,6 @@ public class DiseaseAdapter extends RecyclerView.Adapter<DiseaseAdapter.DiseaseV
         holder.diseaseNameTextView.setText(disease.getName());
         holder.icd10TextView.setText(disease.getICD10());
 
-        //holder.editButton.setOnClickListener(v -> onDiseaseActionListener.onEditDisease(disease));
         holder.deleteButton.setOnClickListener(v -> onDiseaseActionListener.onDeleteDisease(disease));
     }
 
@@ -45,23 +43,17 @@ public class DiseaseAdapter extends RecyclerView.Adapter<DiseaseAdapter.DiseaseV
         return diseaseList.size();
     }
 
-    public interface OnDiseaseActionListener {
-        //void onEditDisease(Disease disease);
-
-        void onDeleteDisease(Disease disease);
-    }
+    public interface OnDiseaseActionListener { void onDeleteDisease(Disease disease); }
 
     public static class DiseaseViewHolder extends RecyclerView.ViewHolder {
         TextView diseaseNameTextView;
         TextView icd10TextView;
-        ImageButton editButton;
         ImageButton deleteButton;
 
         public DiseaseViewHolder(@NonNull View itemView) {
             super(itemView);
             diseaseNameTextView = itemView.findViewById(R.id.diseaseNameTextView);
             icd10TextView = itemView.findViewById(R.id.icd10TextView);
-            //editButton = itemView.findViewById(R.id.editButton);
             deleteButton = itemView.findViewById(R.id.deleteButton);
         }
     }

@@ -1,20 +1,15 @@
 package com.example.myapplication;
 import android.annotation.SuppressLint;
-import android.app.ActivityOptions;
 import android.app.Dialog;
 import android.content.ContentValues;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.transition.Transition;
-import android.transition.TransitionInflater;
+import android.util.Log;
 import android.widget.*;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -28,72 +23,46 @@ import com.theokanning.openai.runs.RunCreateRequest;
 import com.theokanning.openai.service.OpenAiService;
 import com.theokanning.openai.threads.Thread;
 import com.theokanning.openai.threads.ThreadRequest;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.json.JSONArray;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdapter.OnDiseaseActionListener {
-
-    private EditText editTextDiseaseName;
+public class AddDiseaseActivity
+        extends BaseActivity implements DiseaseAdapter.OnDiseaseActionListener {
     private EditText editTextICD10;
     DiseaseAdapter diseaseAdapter;
     private List<Disease> diseaseList;
     private DatabaseHelper dbHelper;
     private String CURRENT_USER_ID;
+    private static final OkHttpClient client = new OkHttpClient();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_disease);
-        CURRENT_USER_ID = getSharedPreferences("PREFERENCE", MODE_PRIVATE).getString("userId", "default_value");
+        CURRENT_USER_ID =
+                getSharedPreferences("PREFERENCE", MODE_PRIVATE).getString("userId", "default_value");
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        bottomNav.setBackgroundColor(Color.WHITE);
-        bottomNav.setSelectedItemId(R.id.menu_diseases);
-        bottomNav.setOnNavigationItemSelectedListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.menu_dashboard) {
-                Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
-                getWindow().setSharedElementExitTransition(fade);
-
-                Intent intent = new Intent(this, DashboardActivity.class);
-                ActivityOptions options = ActivityOptions
-                        .makeSceneTransitionAnimation(this, bottomNav, "bottomNavTransition");
-                startActivity(intent, options.toBundle());
-            } else if (itemId == R.id.menu_diseases) {
-                Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
-                getWindow().setSharedElementExitTransition(fade);
-
-                Intent intent = new Intent(this, AddDiseaseActivity.class);
-                ActivityOptions options = ActivityOptions
-                        .makeSceneTransitionAnimation(this, bottomNav, "bottomNavTransition");
-                startActivity(intent, options.toBundle());
-            } else if (itemId == R.id.menu_profile) {
-                Transition fade = TransitionInflater.from(this).inflateTransition(R.transition.move);
-                getWindow().setSharedElementExitTransition(fade);
-
-                Intent intent = new Intent(this, ProfileSetupActivity.class);
-                ActivityOptions options = ActivityOptions
-                        .makeSceneTransitionAnimation(this, bottomNav, "bottomNavTransition");
-                startActivity(intent, options.toBundle());
-            } else if(itemId == R.id.menu_help) {
-                // start Help activity
-            } else if (itemId == R.id.menu_logout) {
-                SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-                sharedPreferences.edit().clear().apply();
-
-                Intent intent = new Intent(this, LoginActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-            }
-            return true;
-        });
+        setupNavigation(bottomNav, R.id.menu_diseases);
 
         dbHelper = new DatabaseHelper(this);
 
-        editTextDiseaseName = findViewById(R.id.editTextDiseaseName);
         editTextICD10 = findViewById(R.id.editTextICD10Code);
 
         Button saveButton = findViewById(R.id.saveDiseaseButton);
-        saveButton.setOnClickListener(v -> saveDisease());
+        saveButton.setOnClickListener(v -> {
+            try {
+                saveDisease();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
         RecyclerView recyclerView = findViewById(R.id.recyclerViewDiseases);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -104,49 +73,59 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
         loadDiseases();
     }
 
-    private void saveDisease() {
-        String diseaseName = editTextDiseaseName.getText().toString().trim();
+    @SuppressLint("SetTextI18n")
+    private void saveDisease() throws IOException {
         String icd10Code = editTextICD10.getText().toString().trim();
 
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         String query = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES + " ud "
                 + "INNER JOIN " + DatabaseHelper.TABLE_DISEASES + " d "
-                + "ON ud." + DatabaseHelper.COLUMN_DISEASE_ID_FK + " = d." + DatabaseHelper.COLUMN_DISEASE_ID
-                + " WHERE (d." + DatabaseHelper.COLUMN_DISEASE_DESCRIPTION + " =? OR d." + DatabaseHelper.COLUMN_ICD10 + " =?)"
+                + "ON ud." + DatabaseHelper.COLUMN_DISEASE_ID_FK + " = d."
+                + DatabaseHelper.COLUMN_DISEASE_ID + " WHERE (d."
+                + DatabaseHelper.COLUMN_ICD10 + " =?)"
                 + " AND ud." + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + " =?";
 
-        String[] selectionArgs = { diseaseName, icd10Code, String.valueOf(CURRENT_USER_ID) };
+        String[] selectionArgs = {icd10Code, String.valueOf(CURRENT_USER_ID)};
         Cursor cursor = db.rawQuery(query, selectionArgs);
 
-        if (diseaseName.isEmpty() || icd10Code.isEmpty()) {
-            Snackbar.make(findViewById(android.R.id.content), "Please enter both disease name and ICD-10 code", Snackbar.LENGTH_SHORT).show();
+        if (icd10Code.isEmpty()) {
+            Snackbar
+                    .make(findViewById(android.R.id.content),
+                            "Please enter ICD-10 code", Snackbar.LENGTH_SHORT)
+                    .show();
             return;
-        }
-        else{
+        } else {
             if (cursor.getCount() > 0) {
-                Snackbar.make(findViewById(android.R.id.content), "The user already has this disease!", Snackbar.LENGTH_SHORT).show();
+                Snackbar
+                        .make(findViewById(android.R.id.content), "The user already has this disease!",
+                                Snackbar.LENGTH_SHORT)
+                        .show();
             } else {
-                ContentValues values = new ContentValues();
-                values.put(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION, diseaseName);
-                values.put(DatabaseHelper.COLUMN_ICD10, icd10Code);
+                isValidIcd10Code(icd10Code, (isValid, disease) -> {
+                    if (!isValid) {
+                        Snackbar
+                                .make(
+                                        findViewById(android.R.id.content), "The ICD-10 code is invalid or incomplete, please verify.", Snackbar.LENGTH_LONG)
+                                .show();
+                    } else {
+                        ContentValues values = new ContentValues();
+                        values.put(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION, disease);
+                        values.put(DatabaseHelper.COLUMN_ICD10, icd10Code);
 
-                long newRowId = db.insert(DatabaseHelper.TABLE_DISEASES, null, values);
+                        long newRowId = db.insert(DatabaseHelper.TABLE_DISEASES, null, values);
 
-                if (newRowId != -1) {
-                    ContentValues userDiseaseValues = new ContentValues();
-                    userDiseaseValues.put(DatabaseHelper.COLUMN_USER_ID_FK_DISEASE, CURRENT_USER_ID);
-                    userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_ID_FK, newRowId);
+                        ContentValues userDiseaseValues = new ContentValues();
+                        userDiseaseValues.put(DatabaseHelper.COLUMN_USER_ID_FK_DISEASE, CURRENT_USER_ID);
+                        userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_ID_FK, newRowId);
 
-                    long newUserDiseaseRowId = db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
-
-                    if (newUserDiseaseRowId != -1) {
+                        db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
 
                         final Dialog dialog = new Dialog(AddDiseaseActivity.this);
 
                         dialog.setContentView(R.layout.custom_dialog);
 
-                        ProgressBar progressBar = dialog.findViewById(R.id.progress);
+                        dialog.findViewById(R.id.progress);
                         TextView textView = dialog.findViewById(R.id.text);
 
                         textView.setText("Saving disease...");
@@ -166,104 +145,109 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
                             }
                         }
 
-                        if (!exists){
+                        if (!exists) {
                             ExecutorService executor = Executors.newSingleThreadExecutor();
 
                             Handler handler = new Handler(Looper.getMainLooper());
 
                             OpenAiService service = new OpenAiService(TokenData.OPEN_AI_SERVICE_KEY.getToken());
 
-                            executor.execute(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try {
-                                        Assistant assistant = service.retrieveAssistant(TokenData.ASSISTANT_ID.getToken());
+                            executor.execute(() -> {
+                                try {
+                                    Assistant assistant = service.retrieveAssistant(TokenData.ASSISTANT_ID.getToken());
 
-                                        Thread thread = service.createThread(new ThreadRequest());
+                                    Thread thread = service.createThread(new ThreadRequest());
 
-                                        UserProfile userProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
+                                    UserProfile userProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
 
-                                        String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight() + " cm " + " and " + userProfile.getWeight() + " kg and " + icd10Code + " ICD10 disease code. " +
-                                                "Information that may help you in prescribing tratment: blood pressure is " + userProfile.getBloodPressure() + "mmHG and heartrate " + userProfile.getHeartrate() + "BPM.";
+                                    String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
+                                            + " cm "
+                                            + " and " + userProfile.getWeight() + " kg and " + icd10Code
+                                            + " ICD10 disease code. "
+                                            + "Information that may help you in prescribing tratment: blood pressure is "
+                                            + userProfile.getBloodPressure() + "mmHG and heartrate "
+                                            + userProfile.getHeartrate() + "BPM."
+                                            + "Please provide the correct medication on the disease.";
 
-                                        MessageRequest messageRequest = MessageRequest.builder()
-                                                .role("user")
-                                                .content(prompt)
-                                                .build();
+                                    MessageRequest messageRequest =
+                                            MessageRequest.builder().role("user").content(prompt).build();
 
-                                        service.createMessage(thread.getId(), messageRequest);
+                                    service.createMessage(thread.getId(), messageRequest);
 
-                                        RunCreateRequest runCreateRequest = RunCreateRequest.builder()
-                                                .assistantId(assistant.getId())
-                                                .build();
+                                    RunCreateRequest runCreateRequest =
+                                            RunCreateRequest.builder().assistantId(assistant.getId()).build();
 
-                                        Run run = service.createRun(thread.getId(), runCreateRequest);
+                                    Run run = service.createRun(thread.getId(), runCreateRequest);
 
-                                        Run retrievedRun;
-                                        do {
-                                            retrievedRun = service.retrieveRun(thread.getId(), run.getId());
-                                        }
-                                        while (!(retrievedRun.getStatus().equals("completed")) && !(retrievedRun.getStatus().equals("failed")));
+                                    Run retrievedRun;
+                                    do {
+                                        retrievedRun = service.retrieveRun(thread.getId(), run.getId());
+                                    } while (!(retrievedRun.getStatus().equals("completed"))
+                                            && !(retrievedRun.getStatus().equals("failed")));
 
-                                        OpenAiResponse<Message> response = service.listMessages(thread.getId());
-                                        Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
-                                        String diseaseResponse = respMsg.getContent().get(0).getText().
-                                                getValue().replace('*', ' ').replace('#', ' ');
-                                        String key = "Disease#" + icd10Code;
-                                        long diseaseId = dbHelper.insertOnSession(CURRENT_USER_ID, key, diseaseResponse);
+                                    OpenAiResponse<Message> response = service.listMessages(thread.getId());
+                                    Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
+                                    String diseaseResponse =
+                                            respMsg.getContent().get(0).getText().getValue().replace('*', ' ').replace(
+                                                    '#', ' ');
+                                    String key = "Disease#" + icd10Code + "#" + disease;
+                                    long diseaseId = dbHelper.insertOnSession(CURRENT_USER_ID, key, diseaseResponse);
 
-                                        SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
-                                        editor.putString(key, String.valueOf(diseaseId));
-                                        editor.apply();
+                                    SharedPreferences.Editor editor =
+                                            getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
+                                    editor.putString(key, String.valueOf(diseaseId));
+                                    editor.apply();
 
-                                        dialog.dismiss();
+                                    dialog.dismiss();
 
-                                    } catch (Exception e) {
-                                        handler.post(() -> {
-                                            Snackbar.make(findViewById(android.R.id.content), "Saving failed! Try again later!", Snackbar.LENGTH_SHORT).show();
-                                        });
-                                    }
+                                } catch (Exception e) {
+                                    handler.post(() -> Snackbar
+                                            .make(findViewById(android.R.id.content), "Saving failed! Try again later!",
+                                                    Snackbar.LENGTH_SHORT)
+                                            .show());
                                 }
                             });
 
                             loadDiseases();
-                            editTextDiseaseName.getText().clear();
                             editTextICD10.getText().clear();
-                        }
-                        else{
+                        } else {
                             dialog.dismiss();
                         }
-                    } else {
-                        Snackbar.make(findViewById(android.R.id.content), "Failed to add disease for the user!", Snackbar.LENGTH_SHORT).show();
                     }
-                } else {
-                    Snackbar.make(findViewById(android.R.id.content), "Failed to add disease!", Snackbar.LENGTH_SHORT).show();
-                }
+                });
             }
         }
 
         cursor.close();
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private void loadDiseases() {
         diseaseList.clear();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
         String selection = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=?";
-        String[] selectionArgs = { String.valueOf(CURRENT_USER_ID) };
-        Cursor cursor = db.query(DatabaseHelper.TABLE_USER_DISEASES, null, selection, selectionArgs, null, null, null);
+        String[] selectionArgs = {String.valueOf(CURRENT_USER_ID)};
+        Cursor cursor = db.query(
+                DatabaseHelper.TABLE_USER_DISEASES, null, selection, selectionArgs, null, null, null);
 
         if (cursor != null) {
             while (cursor.moveToNext()) {
-                @SuppressLint("Range") int diseaseId = cursor.getInt(cursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_ID_FK));
+                @SuppressLint("Range")
+                int diseaseId = cursor.getInt(cursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_ID_FK));
 
                 String diseaseSelection = DatabaseHelper.COLUMN_DISEASE_ID + "=?";
-                String[] diseaseSelectionArgs = { String.valueOf(diseaseId) };
-                Cursor diseaseCursor = db.query(DatabaseHelper.TABLE_DISEASES, null, diseaseSelection, diseaseSelectionArgs, null, null, null);
+                String[] diseaseSelectionArgs = {String.valueOf(diseaseId)};
+                Cursor diseaseCursor = db.query(DatabaseHelper.TABLE_DISEASES, null, diseaseSelection,
+                        diseaseSelectionArgs, null, null, null);
 
                 if (diseaseCursor != null && diseaseCursor.moveToFirst()) {
-                    @SuppressLint("Range") String description = diseaseCursor.getString(diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION));
-                    @SuppressLint("Range") String icd10 = diseaseCursor.getString(diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_ICD10));
+                    @SuppressLint("Range")
+                    String description = diseaseCursor.getString(
+                            diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION));
+                    @SuppressLint("Range")
+                    String icd10 =
+                            diseaseCursor.getString(diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_ICD10));
 
                     Disease disease = new Disease(diseaseId, description, icd10);
                     diseaseList.add(disease);
@@ -278,67 +262,79 @@ public class AddDiseaseActivity extends AppCompatActivity implements DiseaseAdap
         }
     }
 
-//    @Override
-//    public void onEditDisease(Disease disease) {
-//        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-//
-//        LayoutInflater inflater = getLayoutInflater();
-//        View dialogLayout = inflater.inflate(R.layout.edit_disease_dialog, null);
-//        EditText editTextDiseaseName = dialogLayout.findViewById(R.id.editTextDiseaseName);
-//        EditText editTextICD10 = dialogLayout.findViewById(R.id.editTextICD10Code);
-//
-//        editTextDiseaseName.setText(disease.getName());
-//        editTextICD10.setText(disease.getICD10());
-//
-//        builder.setView(dialogLayout)
-//                .setPositiveButton("Update", (dialog, id) -> {
-//                    String diseaseName = editTextDiseaseName.getText().toString().trim();
-//                    String icd10Code = editTextICD10.getText().toString().trim();
-//
-//                    SQLiteDatabase db = dbHelper.getWritableDatabase();
-//
-//                    ContentValues values = new ContentValues();
-//                    values.put(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION, diseaseName);
-//                    values.put(DatabaseHelper.COLUMN_ICD10, icd10Code);
-//
-//                    String whereClause = DatabaseHelper.COLUMN_DISEASE_ID + "=?";
-//                    String[] whereArgs = { String.valueOf(disease.getDiseaseId()) };
-//                    int updatedRows = db.update(DatabaseHelper.TABLE_DISEASES, values, whereClause, whereArgs);
-//
-//                    if (updatedRows > 0) {
-//                        Snackbar.make(findViewById(android.R.id.content), "Disease updated successfully!", Snackbar.LENGTH_SHORT).show();
-//                        loadDiseases();
-//                    } else {
-//                        Snackbar.make(findViewById(android.R.id.content), "Failed to update disease!", Snackbar.LENGTH_SHORT).show();
-//                    }
-//                })
-//                .setNegativeButton("Cancel", (dialog, id) -> {
-//                });
-//
-//        builder.create().show();
-//    }
-
     @Override
     public void onDeleteDisease(Disease disease) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
-        String whereClause = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND " + DatabaseHelper.COLUMN_DISEASE_ID_FK + "=?";
-        String[] whereArgs = { String.valueOf(CURRENT_USER_ID), String.valueOf(disease.getDiseaseId()) };
+        String whereClause = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND "
+                + DatabaseHelper.COLUMN_DISEASE_ID_FK + "=?";
+        String[] whereArgs = {String.valueOf(CURRENT_USER_ID), String.valueOf(disease.getDiseaseId())};
         int deletedRows = db.delete(DatabaseHelper.TABLE_USER_DISEASES, whereClause, whereArgs);
 
         if (deletedRows > 0) {
             SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-            String key = "Disease#" + disease.getICD10();
+            String key = "Disease#" + disease.getICD10() + "#" + disease.getName();
             if (preferences.contains(key)) {
                 SharedPreferences.Editor editor = preferences.edit();
                 editor.remove(key);
                 editor.apply();
             }
 
-            Snackbar.make(findViewById(android.R.id.content), "Disease deleted successfully!", Snackbar.LENGTH_SHORT).show();
+            Snackbar
+                    .make(findViewById(android.R.id.content), "Disease deleted successfully!",
+                            Snackbar.LENGTH_SHORT)
+                    .show();
             loadDiseases();
         } else {
-            Snackbar.make(findViewById(android.R.id.content), "Failed to delete disease!", Snackbar.LENGTH_SHORT).show();
+            Snackbar
+                    .make(findViewById(android.R.id.content), "Failed to delete disease!",
+                            Snackbar.LENGTH_SHORT)
+                    .show();
         }
+    }
+
+    public interface Icd10CodeValidationCallback {
+        void onResultReceived(boolean isValid, String diseaseName);
+    }
+
+    public void isValidIcd10Code(String code, Icd10CodeValidationCallback callback) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(() -> {
+            String regex = "^[A-TV-Z][0-9]{2}(\\.[0-9]{1,4})?$";
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(code);
+            if (!matcher.matches()) {
+                handler.post(() -> callback.onResultReceived(false, ""));
+                return;
+            }
+
+            String url = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=" + code;
+
+            Request request = new Request.Builder().url(url).get().build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful())
+                    throw new IOException("Unexpected code " + response);
+
+                String resultStr = Objects.requireNonNull(response.body()).string();
+                JSONArray result = new JSONArray(resultStr);
+                boolean isValid = resultStr.startsWith("[1,");
+                if (isValid && result.length() >= 4) {
+                    JSONArray diseaseInfo = result.getJSONArray(3);
+                    if (diseaseInfo.length() > 0) {
+                        JSONArray diseaseNameInfo = diseaseInfo.getJSONArray(0);
+                        if (diseaseNameInfo.length() >= 2) {
+                            String diseaseName = diseaseNameInfo.getString(1);
+                            handler.post(() -> callback.onResultReceived(isValid, diseaseName));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("ICD10CodeValidation", "Validation failed", e);
+                handler.post(() -> callback.onResultReceived(false, ""));
+            }
+        });
     }
 }

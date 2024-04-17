@@ -1,15 +1,15 @@
-// Disease.java
 package com.example.myapplication;
 
 public class Disease {
 
-    private String ICD10;
+    private final String ICD10;
     private int diseaseId;
     private String name;
     private String interpretation;
 
-    public Disease (String icd10, String interpretation){
+    public Disease (String icd10, String name, String interpretation){
         this.ICD10 = icd10;
+        this.name = name;
         this.interpretation = interpretation;
     }
 
@@ -37,9 +37,5 @@ public class Disease {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public void setICD10(String ICD10) {
-        this.ICD10 = ICD10;
     }
 }

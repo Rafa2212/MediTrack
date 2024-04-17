@@ -21,7 +21,7 @@
                 android:layout_columnWeight="1"
                 android:layout_row="0"
                 android:layout_column="0"
-                android:text="Disease Name"
+                android:text="@string/disease_name"
                 android:textSize="18sp"/>
 
         <TextView
@@ -31,19 +31,9 @@
                 android:layout_columnWeight="1"
                 android:layout_row="0"
                 android:layout_column="1"
-                android:text="ICD10 Code"
+                android:text="@string/icd10_code"
                 android:textSize="16sp"/>
 
-        <!--        <ImageButton-->
-        <!--                android:id="@+id/editButton"-->
-        <!--                android:layout_width="wrap_content"-->
-        <!--                android:layout_height="wrap_content"-->
-        <!--                android:src="@drawable/ic_edit"-->
-        <!--                android:layout_marginTop="8dp"-->
-        <!--                android:layout_marginEnd="8dp"-->
-        <!--                android:layout_row="0"-->
-        <!--                android:layout_column="2"-->
-        <!--                android:background="@android:color/transparent"/>-->
 
         <ImageButton
                 android:id="@+id/deleteButton"
@@ -54,7 +44,8 @@
                 android:layout_marginEnd="8dp"
                 android:layout_row="0"
                 android:layout_column="3"
-                android:background="@android:color/transparent"/>
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/delete_button"/>
 
     </GridLayout>
 </androidx.cardview.widget.CardView>
