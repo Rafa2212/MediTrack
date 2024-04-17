@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="16dp"
+                android:theme="@style/Theme.MyApplication">
+
+    <ImageView
+            android:id="@+id/imageViewLogo"
+            android:layout_width="344dp"
+            android:layout_height="342dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="32dp"
+            android:src="@drawable/medi_track" />
+
+    <EditText
+            android:id="@+id/editTextUsername"
+            style="@style/LoginEditTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/imageViewLogo"
+            android:layout_marginTop="16dp"
+            android:hint="Username" />
+
+    <EditText
+            android:id="@+id/editTextPassword"
+            style="@style/LoginEditTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/editTextUsername"
+            android:layout_marginTop="16dp"
+            android:hint="Password"
+            android:inputType="textPassword" />
+
+    <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/editTextPassword"
+            android:layout_marginTop="23dp"
+            android:orientation="vertical">
+
+        <Button
+                android:id="@+id/buttonLogin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/logoColor"
+                android:layout_marginTop="19dp"
+                android:layout_marginStart="144dp"
+                android:text="Login"/>
+
+        <Button
+                android:id="@+id/buttonRegister"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/logoColor"
+                android:layout_marginTop="19dp"
+                android:layout_marginStart="144dp"
+                android:text="Register"/>
+
+    </LinearLayout>
+
+</RelativeLayout>

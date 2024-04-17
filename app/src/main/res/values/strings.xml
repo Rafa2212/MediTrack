@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MediTrack</string>
+    <string name="bmi_title">BMI</string>
+    <string name="bmi_description">BMI, or Body Mass Index, is a measure assessing whether you have a healthy body weight for your height.</string>
+    <string name="bmi_my_evaluation">Get my evaluation</string>
+    <string name="bmi_value"></string>
+</resources>
