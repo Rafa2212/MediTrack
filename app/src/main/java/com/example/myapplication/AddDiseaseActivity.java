@@ -119,8 +119,6 @@ public class AddDiseaseActivity
                         userDiseaseValues.put(DatabaseHelper.COLUMN_USER_ID_FK_DISEASE, CURRENT_USER_ID);
                         userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_ID_FK, newRowId);
 
-                        db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
-
                         final Dialog dialog = new Dialog(AddDiseaseActivity.this);
 
                         dialog.setContentView(R.layout.custom_dialog);
@@ -198,7 +196,12 @@ public class AddDiseaseActivity
                                     editor.putString(key, String.valueOf(diseaseId));
                                     editor.apply();
 
-                                    dialog.dismiss();
+                                    db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
+
+                                    handler.post(() -> {
+                                        dialog.dismiss();
+                                        loadDiseases();
+                                    });
 
                                 } catch (Exception e) {
                                     handler.post(() -> Snackbar
@@ -211,6 +214,10 @@ public class AddDiseaseActivity
                             loadDiseases();
                             editTextICD10.getText().clear();
                         } else {
+                            Snackbar
+                                    .make(
+                                            findViewById(android.R.id.content), "The ICD-10 exists!", Snackbar.LENGTH_LONG)
+                                    .show();
                             dialog.dismiss();
                         }
                     }
@@ -300,41 +307,45 @@ public class AddDiseaseActivity
     public void isValidIcd10Code(String code, Icd10CodeValidationCallback callback) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Handler handler = new Handler(Looper.getMainLooper());
+        try {
+            executor.execute(() -> {
+                String regex = "^[A-TV-Z][0-9]{2}(\\.[0-9]{1,4})?$";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(code);
+                if (!matcher.matches()) {
+                    handler.post(() -> callback.onResultReceived(false, ""));
+                    return;
+                }
 
-        executor.execute(() -> {
-            String regex = "^[A-TV-Z][0-9]{2}(\\.[0-9]{1,4})?$";
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(code);
-            if (!matcher.matches()) {
-                handler.post(() -> callback.onResultReceived(false, ""));
-                return;
-            }
+                String url = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=" + code;
 
-            String url = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=" + code;
+                Request request = new Request.Builder().url(url).get().build();
 
-            Request request = new Request.Builder().url(url).get().build();
+                try (Response response = client.newCall(request).execute()) {
+                    if (!response.isSuccessful())
+                        throw new IOException("Unexpected code " + response);
 
-            try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful())
-                    throw new IOException("Unexpected code " + response);
-
-                String resultStr = Objects.requireNonNull(response.body()).string();
-                JSONArray result = new JSONArray(resultStr);
-                boolean isValid = resultStr.startsWith("[1,");
-                if (isValid && result.length() >= 4) {
-                    JSONArray diseaseInfo = result.getJSONArray(3);
-                    if (diseaseInfo.length() > 0) {
-                        JSONArray diseaseNameInfo = diseaseInfo.getJSONArray(0);
-                        if (diseaseNameInfo.length() >= 2) {
-                            String diseaseName = diseaseNameInfo.getString(1);
-                            handler.post(() -> callback.onResultReceived(isValid, diseaseName));
+                    String resultStr = Objects.requireNonNull(response.body()).string();
+                    JSONArray result = new JSONArray(resultStr);
+                    boolean isValid = resultStr.startsWith("[1,");
+                    if (isValid && result.length() >= 4) {
+                        JSONArray diseaseInfo = result.getJSONArray(3);
+                        if (diseaseInfo.length() > 0) {
+                            JSONArray diseaseNameInfo = diseaseInfo.getJSONArray(0);
+                            if (diseaseNameInfo.length() >= 2) {
+                                String diseaseName = diseaseNameInfo.getString(1);
+                                handler.post(() -> callback.onResultReceived(isValid, diseaseName));
+                            }
                         }
                     }
+                } catch (Exception e) {
+                    Log.e("ICD10CodeValidation", "Validation failed", e);
+                    handler.post(() -> callback.onResultReceived(false, ""));
                 }
-            } catch (Exception e) {
-                Log.e("ICD10CodeValidation", "Validation failed", e);
-                handler.post(() -> callback.onResultReceived(false, ""));
-            }
-        });
+            });
+        }
+        catch (Exception e){
+            Log.e("ICD10CodeValidation", "Error when executing the task", e);
+        }
     }
 }
