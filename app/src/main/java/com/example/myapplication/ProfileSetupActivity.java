@@ -9,11 +9,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.TextView;
+import android.widget.*;
+import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
 import com.theokanning.openai.OpenAiResponse;
 import com.theokanning.openai.assistants.Assistant;
 import com.theokanning.openai.messages.Message;
@@ -26,6 +27,7 @@ import com.theokanning.openai.threads.ThreadRequest;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,10 +46,21 @@ public class ProfileSetupActivity extends BaseActivity {
 
         EditText editTextName = findViewById(R.id.editTextName);
         EditText editTextAge = findViewById(R.id.editTextAge);
+
+        //TODO: implementare pentru Fitbit API: intai faci un prompt cu prepare pentru un structured format (il gandesti inainte)
+        // si dupa abia un prompt mare cu toate datele pentru medical report
+        //TODO: implement on a new page activity 3-4 questions about how did you felt this week
+        //TODO: integrate the new questions and get your medical report button with the new logic and
+        // the ICD10 codes add them only based on the API to verify if there are in the right format and take them into account
+        // when you press get your medical report
+        //TODO: implement a logic so the user can only do this once a week
+        //TODO: remove the prompt when you save the user profile
+        //TODO: do the prompt only on the get your medical report si eventual implementare intr-un PDF
+
+        //rough estimate: 1 zi jumate (marti, miercuri)
+
         EditText editTextHeight = findViewById(R.id.editTextHeight);
         EditText editTextWeight = findViewById(R.id.editTextWeight);
-        EditText editTextBloodPressure = findViewById(R.id.editTextBP);
-        EditText editTextHeartrate = findViewById(R.id.editTextHR);
         Button buttonSubmitProfile = findViewById(R.id.buttonSubmitProfile);
 
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
@@ -60,8 +73,6 @@ public class ProfileSetupActivity extends BaseActivity {
             editTextAge.setText(String.valueOf(userProfile.getAge()));
             editTextHeight.setText(String.valueOf(userProfile.getHeight()));
             editTextWeight.setText(String.valueOf(userProfile.getWeight()));
-            editTextBloodPressure.setText(String.valueOf(userProfile.getBloodPressure()));
-            editTextHeartrate.setText(String.valueOf(userProfile.getHeartrate()));
         }
 
         buttonSubmitProfile.setOnClickListener(v -> {
@@ -69,11 +80,9 @@ public class ProfileSetupActivity extends BaseActivity {
             String ageTxt = editTextAge.getText().toString();
             String heightTxt = editTextHeight.getText().toString();
             String weightTxt = editTextWeight.getText().toString();
-            String bpTxt = editTextBloodPressure.getText().toString();
-            String hrTxt = editTextHeartrate.getText().toString();
 
             if (TextUtils.isEmpty(name) || TextUtils.isEmpty(ageTxt) || TextUtils.isEmpty(heightTxt)
-                    || TextUtils.isEmpty(weightTxt) || TextUtils.isEmpty(bpTxt) || TextUtils.isEmpty(hrTxt)) {
+                    || TextUtils.isEmpty(weightTxt)) {
                 Snackbar
                         .make(findViewById(android.R.id.content), "Please fill out all fields",
                                 Snackbar.LENGTH_SHORT)
@@ -95,12 +104,13 @@ public class ProfileSetupActivity extends BaseActivity {
                 int age = Integer.parseInt(ageTxt);
                 float height = Float.parseFloat(heightTxt);
                 float weight = Float.parseFloat(weightTxt);
-                int bloodPressure = Integer.parseInt(bpTxt);
-                int heartrate = Integer.parseInt(hrTxt);
 
                 UserProfile userProfile =
-                        new UserProfile(name, age, height, weight, bloodPressure, heartrate);
+                        new UserProfile(name, age, height, weight, "");
                 dbHelper.insertOrUpdateProfile(curr_user, userProfile);
+
+                FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
+                fb.updateUserProfile(userProfile);
 
                 float heightInMeters = height / 100;
                 float BMI = weight / (heightInMeters * heightInMeters);
@@ -132,7 +142,7 @@ public class ProfileSetupActivity extends BaseActivity {
                             String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
                                     + " cm "
                                     + " and " + userProfile.getWeight() + " kg and " + BMI
-                                    + "BMI. Show me some insights if that is over average, under, possible diseases based on the BMI.";
+                                    + "BMI. Show me some short insights if that is over average, under, possible diseases based on the BMI.";
 
                             MessageRequest messageRequest =
                                     MessageRequest.builder().role("user").content(prompt).build();
@@ -177,7 +187,7 @@ public class ProfileSetupActivity extends BaseActivity {
                     });
                 } else {
                     dialog.dismiss();
-                    Intent intent = new Intent(ProfileSetupActivity.this, AddDiseaseActivity.class);
+                    Intent intent = new Intent(ProfileSetupActivity.this, DashboardActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
                 }

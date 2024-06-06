@@ -7,9 +7,11 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import java.time.LocalDateTime;
+
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 18;
+    private static final int DATABASE_VERSION = 21;
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
@@ -35,8 +37,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_AGE = "age";
     public static final String COLUMN_HEIGHT = "height";
     public static final String COLUMN_WEIGHT = "weight";
-    public static final String COLUMN_BLOOD_PRESSURE = "blood_pressure";
-    public static final String COLUMN_HEARTRATE = "heartrate";
+    private static final String COLUMN_LAST_MED_REP = "last_medical_report";
 
     public static final String TABLE_DISEASES = "diseases";
     public static final String TABLE_USER_DISEASES = "user_diseases";
@@ -69,8 +70,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String CREATE_TABLE_PROFILE = "CREATE TABLE IF NOT EXISTS " + TABLE_PROFILE
             + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_NAME + " TEXT, "
-            + COLUMN_AGE + " INTEGER, " + COLUMN_HEIGHT + " FLOAT, " + COLUMN_BLOOD_PRESSURE
-            + " INTEGER, " + COLUMN_HEARTRATE + " INTEGER, " + COLUMN_WEIGHT + " FLOAT) ";
+            + COLUMN_AGE + " INTEGER, " + COLUMN_HEIGHT + " FLOAT, "
+            + COLUMN_WEIGHT + " FLOAT, " + COLUMN_LAST_MED_REP + " TEXT ) ";
 
     private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS
             + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USERNAME + " TEXT, "
@@ -133,8 +134,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public UserProfile getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        String[] columns = {COLUMN_NAME, COLUMN_AGE, COLUMN_HEIGHT, COLUMN_WEIGHT,
-                COLUMN_BLOOD_PRESSURE, COLUMN_HEARTRATE};
+        String[] columns = {COLUMN_NAME, COLUMN_AGE, COLUMN_HEIGHT, COLUMN_WEIGHT, COLUMN_LAST_MED_REP};
 
         Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[] {userId},
                 null, null, null, null);
@@ -143,11 +143,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
             @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
             @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
-            @SuppressLint("Range")
-            int bloodPresure = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE));
-            @SuppressLint("Range") int heartrate = cursor.getInt(cursor.getColumnIndex(COLUMN_HEARTRATE));
-            cursor.close();
-            return new UserProfile(name, age, height, weight, bloodPresure, heartrate);
+            @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
+            return new UserProfile(name, age, height, weight, lastMedicalReport);
         }
         assert cursor != null;
         cursor.close();
@@ -163,8 +160,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_AGE, userProfile.getAge());
         values.put(COLUMN_HEIGHT, userProfile.getHeight());
         values.put(COLUMN_WEIGHT, userProfile.getWeight());
-        values.put(COLUMN_BLOOD_PRESSURE, userProfile.getBloodPressure());
-        values.put(COLUMN_HEARTRATE, userProfile.getHeartrate());
+        values.put(COLUMN_LAST_MED_REP, userProfile.getLastMedicalReport());
 
         Cursor cursor = db.query(
                 TABLE_PROFILE, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);

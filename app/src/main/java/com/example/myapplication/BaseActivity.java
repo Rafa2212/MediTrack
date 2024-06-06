@@ -27,9 +27,13 @@ public abstract class BaseActivity extends AppCompatActivity {
                 intent = new Intent(this, AddDiseaseActivity.class);
             } else if (itemId == R.id.menu_profile) {
                 intent = new Intent(this, ProfileSetupActivity.class);
-            } else if (itemId == R.id.menu_help) {
-                intent = new Intent(this, HelpActivity.class);
-            } else if (itemId == R.id.menu_logout) {
+//            } else if (itemId == R.id.menu_help) {
+//                intent = new Intent(this, HelpActivity.class);
+//            }
+            } else if (itemId == R.id.menu_wkly_report) {
+                intent = new Intent(this, WeeklyReportActivity.class);
+            }
+            else if (itemId == R.id.menu_logout) {
                 SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                 sharedPreferences.edit().clear().apply();
                 intent = new Intent(this, LoginActivity.class);

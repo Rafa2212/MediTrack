@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.*;
+import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -71,6 +72,7 @@ public class AddDiseaseActivity
         recyclerView.setAdapter(diseaseAdapter);
 
         loadDiseases();
+
     }
 
     @SuppressLint("SetTextI18n")
@@ -158,15 +160,16 @@ public class AddDiseaseActivity
 
                                     UserProfile userProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
 
-                                    String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
-                                            + " cm "
-                                            + " and " + userProfile.getWeight() + " kg and " + icd10Code
-                                            + " ICD10 disease code. "
-                                            + "Information that may help you in prescribing tratment: blood pressure is "
-                                            + userProfile.getBloodPressure() + "mmHG and heartrate "
-                                            + userProfile.getHeartrate() + "BPM."
-                                            + "Please provide the correct medication on the disease.";
+                                    String prompt = userProfile.getName() + " is a " + userProfile.getAge() + " year old individual with a height of " + userProfile.getHeight() + " cm and a weight of " + userProfile.getWeight() + " kg. They have been diagnosed with a disease coded as " + icd10Code + " (ICD10). The patient has been prescribed a treatment and medication by their doctor.";
 
+                                    prompt += "\n\n Please provide a short summary on cautions and advice specific to the patient's profile:";
+                                    prompt += "\n1. Give general advice on how to take the prescribed medication.";
+                                    prompt += "\n2. Mention any cautions related to alcohol consumption, considering the patient's age (" + userProfile.getAge() + " years old).";
+                                    prompt += "\n3. Provide diet recommendations considering the patient's weight (" + userProfile.getWeight() + " kg) and height (" + userProfile.getHeight() + " cm).";
+                                    prompt += "\n4. Suggest general lifestyle adjustments like staying hydrated, avoiding smoking, and suitable physical activities, keeping in mind their diagnosed condition and overall health.";
+                                    prompt += "\n5. Provide any other relevant advice or cautions based on the given profile.";
+
+                                    prompt += "\n\nThe advice and cautions should be personalized using the patient's name, " + userProfile.getName() + ", and be presented in a user-friendly manner. Thank you.";
                                     MessageRequest messageRequest =
                                             MessageRequest.builder().role("user").content(prompt).build();
 

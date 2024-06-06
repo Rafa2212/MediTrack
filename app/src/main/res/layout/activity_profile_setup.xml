@@ -1,6 +1,6 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
                                                    xmlns:app="http://schemas.android.com/apk/res-auto"
-                                                   android:layout_width="match_parent"
+                                                   xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
                                                    android:layout_height="match_parent"
                                                    android:background="@android:color/white">
 
@@ -59,10 +59,9 @@
                     android:id="@+id/editTextAge"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="number" />
+                    android:inputType="textPersonName" />
 
         </com.google.android.material.textfield.TextInputLayout>
-
 
         <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/editTextHeightLayout"
@@ -108,6 +107,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/blood_pressure"
+                android:visibility="invisible"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
                 app:layout_constraintTop_toBottomOf="@+id/editTextWeightLayout"
@@ -117,6 +117,7 @@
                     android:id="@+id/editTextBP"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:visibility="invisible"
                     android:inputType="numberDecimal" />
 
         </com.google.android.material.textfield.TextInputLayout>
@@ -127,6 +128,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/heartbeat"
+                android:visibility="invisible"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
                 app:layout_constraintTop_toBottomOf="@+id/editTextBPLayout"
@@ -135,6 +137,7 @@
             <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/editTextHR"
                     android:layout_width="match_parent"
+                    android:visibility="invisible"
                     android:layout_height="wrap_content"
                     android:inputType="number" />
 

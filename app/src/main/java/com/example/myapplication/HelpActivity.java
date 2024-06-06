@@ -18,7 +18,7 @@ public class HelpActivity extends BaseActivity {
         setContentView(R.layout.activity_help);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        setupNavigation(bottomNav, R.id.menu_help);
+        //setupNavigation(bottomNav, R.id.menu_help);
 
         WebView webView = findViewById(R.id.webView);
 
