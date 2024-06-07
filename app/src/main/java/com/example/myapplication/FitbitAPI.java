@@ -148,10 +148,6 @@ public class FitbitAPI {
                         totalRestlessCount.addAndGet(sleep.restlessCount);
                         totalRestlessDuration.addAndGet(sleep.restlessDuration);
                         totalTimeInBed.addAndGet(sleep.timeInBed);
-                        totalDeepSleep.addAndGet(sleep.summary.stages.deep);
-                        totalLightSleep.addAndGet(sleep.summary.stages.light);
-                        totalRemSleep.addAndGet(sleep.summary.stages.rem);
-                        totalWakeSleep.addAndGet(sleep.summary.stages.wake);
                         totalSleepDays.getAndIncrement();
                     }
                 }
@@ -272,7 +268,6 @@ public class FitbitAPI {
 
     static class SleepResponse {
         public Sleep[] sleep;
-        public Sleep.Summary summary;
         static class Sleep {
             public int minutesAfterWakeup;
             public int minutesAwake;
@@ -280,16 +275,6 @@ public class FitbitAPI {
             public int restlessCount;
             public int restlessDuration;
             public int timeInBed;
-            public Summary summary;
-            static class Summary {
-                public SleepStages stages;
-                static class SleepStages {
-                    public int deep;
-                    public int light;
-                    public int rem;
-                    public int wake;
-                }
-            }
         }
     }
 

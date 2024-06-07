@@ -133,7 +133,7 @@ public class WeeklyReportActivity extends BaseActivity {
 
                 boolean isOlder = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
 
-                if (!isOlder) {
+                if (true) {
 
                     FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
                     fb.updateUserProfile(userProfile);
@@ -241,7 +241,7 @@ public class WeeklyReportActivity extends BaseActivity {
 
     public String generatePrompt(UserProfile userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates) {
         String prompt = String.format(
-                "Patient: %s, having %d year old having %.2f cm height and %.2f kg weight with a BMI of %.2f. " +
+                "Knowing that the current date is: %s, and the patient: %s, having %d year old having %.2f cm height and %.2f kg weight with a BMI of %.2f. " +
                         "Average steps per day: %d, sedentary minutes per day: %d, resting heart rate: %.2f bpm; " +
                         "Average breathing rate: %.2f breaths per minute. " +
                         "Sleep data: %d minutes after wakeup, %d minutes awake, %d minutes to fall asleep, %d restless events, %d minutes restless, %d minutes in bed. " +
@@ -252,6 +252,7 @@ public class WeeklyReportActivity extends BaseActivity {
                         "Patient questions: First question response: %s, BMI question response: %s. " +
                         "Current conditions based on ICD10 codes: %s. " +
                         "Based on the above data, provide a medical report, including potential insights and recommendations for the next week, or possible doctor recommendations if bad states reoccur.",
+                LocalDateTime.now().toString(),
                 userProfile.getName(),
                 userProfile.getAge(),
                 userProfile.getHeight(),

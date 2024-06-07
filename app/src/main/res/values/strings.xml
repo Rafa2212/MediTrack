@@ -6,6 +6,7 @@
     <string name="scroll_through_interpretations">(swipe left/right to cycle through
         interpretations)
     </string>
+    <string name="default_web_client_id">YOUR_CLIENT_ID_HERE</string>
     <string name="interpretations">Interpretations</string>
     <string name="bmi_image">bmi_image</string>
     <string name="dashboard">Dashboard</string>

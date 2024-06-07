@@ -109,9 +109,6 @@ public class ProfileSetupActivity extends BaseActivity {
                         new UserProfile(name, age, height, weight, "");
                 dbHelper.insertOrUpdateProfile(curr_user, userProfile);
 
-                FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
-                fb.updateUserProfile(userProfile);
-
                 float heightInMeters = height / 100;
                 float BMI = weight / (heightInMeters * heightInMeters);
 
