@@ -10,24 +10,17 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.*;
-import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.textfield.TextInputLayout;
-import com.theokanning.openai.OpenAiResponse;
-import com.theokanning.openai.assistants.Assistant;
-import com.theokanning.openai.messages.Message;
-import com.theokanning.openai.messages.MessageRequest;
-import com.theokanning.openai.runs.Run;
-import com.theokanning.openai.runs.RunCreateRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionResult;
+import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
-import com.theokanning.openai.threads.Thread;
-import com.theokanning.openai.threads.ThreadRequest;
+
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -132,35 +125,24 @@ public class ProfileSetupActivity extends BaseActivity {
 
                     executor.execute(() -> {
                         try {
-                            Assistant assistant = service.retrieveAssistant(TokenData.ASSISTANT_ID.getToken());
-
-                            Thread thread = service.createThread(new ThreadRequest());
 
                             String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
                                     + " cm "
                                     + " and " + userProfile.getWeight() + " kg and " + BMI
                                     + "BMI. Show me some short insights if that is over average, under, possible diseases based on the BMI.";
 
-                            MessageRequest messageRequest =
-                                    MessageRequest.builder().role("user").content(prompt).build();
+                            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                                    .model("gpt-3.5-turbo")
+                                    .messages(Arrays.asList(
+                                            new ChatMessage("user", prompt)
+                                    ))
+                                    .build();
 
-                            service.createMessage(thread.getId(), messageRequest);
+                            ChatCompletionResult result = service.createChatCompletion(completionRequest);
 
-                            RunCreateRequest runCreateRequest =
-                                    RunCreateRequest.builder().assistantId(assistant.getId()).build();
-
-                            Run run = service.createRun(thread.getId(), runCreateRequest);
-
-                            Run retrievedRun;
-                            do {
-                                retrievedRun = service.retrieveRun(thread.getId(), run.getId());
-                            } while (!(retrievedRun.getStatus().equals("completed"))
-                                    && !(retrievedRun.getStatus().equals("failed")));
-                            OpenAiResponse<Message> response = service.listMessages(thread.getId());
-                            Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
-                            String bmiResponse =
-                                    respMsg.getContent().get(0).getText().getValue().replace('*', ' ').replace(
-                                            '#', ' ');
+                            String bmiResponse = result.getChoices().get(0).getMessage().getContent()
+                                    .replace('*', ' ')
+                                    .replace('#', ' ');
                             String key = "BMI#" + BMI + "#" + LocalDateTime.now();
                             long bmiId = dbHelper.insertOnSession(curr_user, key, bmiResponse);
 

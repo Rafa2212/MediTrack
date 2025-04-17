@@ -10,20 +10,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.*;
-import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
-import com.theokanning.openai.OpenAiResponse;
-import com.theokanning.openai.assistants.Assistant;
-import com.theokanning.openai.messages.Message;
-import com.theokanning.openai.messages.MessageRequest;
-import com.theokanning.openai.runs.Run;
-import com.theokanning.openai.runs.RunCreateRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionResult;
+import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
-import com.theokanning.openai.threads.Thread;
-import com.theokanning.openai.threads.ThreadRequest;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -154,10 +148,6 @@ public class AddDiseaseActivity
 
                             executor.execute(() -> {
                                 try {
-                                    Assistant assistant = service.retrieveAssistant(TokenData.ASSISTANT_ID.getToken());
-
-                                    Thread thread = service.createThread(new ThreadRequest());
-
                                     UserProfile userProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
 
                                     String prompt = userProfile.getName() + " is a " + userProfile.getAge() + " year old individual with a height of " + userProfile.getHeight() + " cm and a weight of " + userProfile.getWeight() + " kg. They have been diagnosed with a disease coded as " + icd10Code + " (ICD10). The patient has been prescribed a treatment and medication by their doctor.";
@@ -169,27 +159,17 @@ public class AddDiseaseActivity
                                     prompt += "\n4. Suggest general lifestyle adjustments like staying hydrated, avoiding smoking, and suitable physical activities, keeping in mind their diagnosed condition and overall health.";
                                     prompt += "\n5. Provide any other relevant advice or cautions based on the given profile.";
 
-                                    prompt += "\n\nThe advice and cautions should be personalized using the patient's name, " + userProfile.getName() + ", and be presented in a user-friendly manner. Thank you.";
-                                    MessageRequest messageRequest =
-                                            MessageRequest.builder().role("user").content(prompt).build();
+                                    ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                                            .model("gpt-3.5-turbo")
+                                            .messages(Arrays.asList(
+                                                    new ChatMessage("user", prompt)
+                                            ))
+                                            .build();
 
-                                    service.createMessage(thread.getId(), messageRequest);
+                                    ChatCompletionResult result = service.createChatCompletion(completionRequest);
 
-                                    RunCreateRequest runCreateRequest =
-                                            RunCreateRequest.builder().assistantId(assistant.getId()).build();
-
-                                    Run run = service.createRun(thread.getId(), runCreateRequest);
-
-                                    Run retrievedRun;
-                                    do {
-                                        retrievedRun = service.retrieveRun(thread.getId(), run.getId());
-                                    } while (!(retrievedRun.getStatus().equals("completed"))
-                                            && !(retrievedRun.getStatus().equals("failed")));
-
-                                    OpenAiResponse<Message> response = service.listMessages(thread.getId());
-                                    Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
                                     String diseaseResponse =
-                                            respMsg.getContent().get(0).getText().getValue().replace('*', ' ').replace(
+                                            result.getChoices().get(0).getMessage().getContent().replace('*', ' ').replace(
                                                     '#', ' ');
                                     String key = "Disease#" + icd10Code + "#" + disease;
                                     long diseaseId = dbHelper.insertOnSession(CURRENT_USER_ID, key, diseaseResponse);

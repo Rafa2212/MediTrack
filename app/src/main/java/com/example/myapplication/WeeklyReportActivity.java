@@ -2,44 +2,31 @@ package com.example.myapplication;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
-import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
-import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.shape.CornerFamily;
-import com.google.android.material.shape.ShapeAppearanceModel;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
-import com.theokanning.openai.OpenAiResponse;
-import com.theokanning.openai.assistants.Assistant;
-import com.theokanning.openai.messages.Message;
-import com.theokanning.openai.messages.MessageRequest;
-import com.theokanning.openai.runs.Run;
-import com.theokanning.openai.runs.RunCreateRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionRequest;
+import com.theokanning.openai.completion.chat.ChatCompletionResult;
+import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
-import com.theokanning.openai.threads.Thread;
-import com.theokanning.openai.threads.ThreadRequest;
 
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -101,7 +88,7 @@ public class WeeklyReportActivity extends BaseActivity {
             List<String> lstString = getDiseasesStringList(diseasesLinearLayout);
             boolean areAllFieldsCompleted = true;
             for (int i = 0; i < lstString.toArray().length; i++){
-                    if (lstString.get(i).equals("")){
+                    if (lstString.get(i).isEmpty()){
                         areAllFieldsCompleted = false;
                         break;
                     }
@@ -146,43 +133,25 @@ public class WeeklyReportActivity extends BaseActivity {
 
                     executor.execute(() -> {
                         try {
-                            Assistant assistant = service.retrieveAssistant(TokenData.ASSISTANT_ID.getToken());
-
-                            Thread thread = service.createThread(new ThreadRequest());
-
                             String prepPrompt = "Consider that you will work at a medical report PDF document so please follow this structured format:";
                             prepPrompt += "Please take into consideration to include the patient's username, the current date for the report and the title: Weekly Report as headers/title.";
                             prepPrompt += "Now for the content please prepare yourself for some raw data got from a Fitbit API, prepare to interpret it the best for a user and doctor to understand his state";
                             prepPrompt += "For the footer I want the pages counted so please take that in mind, I will provide you in the next prompt the user profile details for the patient and also his data for the week";
 
-                            MessageRequest messageRequest =
-                                    MessageRequest.builder().role("user").content(prepPrompt).build();
-                            service.createMessage(thread.getId(), messageRequest);
-                            RunCreateRequest runCreateRequest =
-                                    RunCreateRequest.builder().assistantId(assistant.getId()).build();
-                            Run run = service.createRun(thread.getId(), runCreateRequest);
-                            Run retrievedRun;
-                            do {
-                                retrievedRun = service.retrieveRun(thread.getId(), run.getId());
-                            } while (!(retrievedRun.getStatus().equals("completed"))
-                                    && !(retrievedRun.getStatus().equals("failed")));
+                            String userDataPrompt = generatePrompt(userProfile, BMI, firstQ, BMIQ, lstString);
 
-                            String prompt = generatePrompt(userProfile, BMI, firstQ, BMIQ, lstString);
+                            String fullPrompt = prepPrompt + "\n\n" + userDataPrompt;
 
-                            messageRequest =
-                                    MessageRequest.builder().role("user").content(prompt).build();
-                            service.createMessage(thread.getId(), messageRequest);
-                            runCreateRequest =
-                                    RunCreateRequest.builder().assistantId(assistant.getId()).build();
-                            run = service.createRun(thread.getId(), runCreateRequest);
-                            do {
-                                retrievedRun = service.retrieveRun(thread.getId(), run.getId());
-                            } while (!(retrievedRun.getStatus().equals("completed"))
-                                    && !(retrievedRun.getStatus().equals("failed")));
-                            OpenAiResponse<Message> response = service.listMessages(thread.getId());
-                            Message respMsg = service.retrieveMessage(thread.getId(), response.getFirstId());
-                            String weeklyReportResponse =
-                                    respMsg.getContent().get(0).getText().getValue();
+                            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                                    .model("gpt-3.5-turbo")
+                                    .messages(Arrays.asList(
+                                            new ChatMessage("user", fullPrompt)
+                                    ))
+                                    .maxTokens(2000)
+                                    .build();
+
+                            ChatCompletionResult result = service.createChatCompletion(completionRequest);
+                            String weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
 
                             PDFGeneration pdfGeneration = new PDFGeneration(getApplicationContext());
                             File pdfFile = pdfGeneration.createPDF(weeklyReportResponse);
@@ -240,7 +209,7 @@ public class WeeklyReportActivity extends BaseActivity {
     }
 
     public String generatePrompt(UserProfile userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates) {
-        String prompt = String.format(
+        @SuppressLint("DefaultLocale") String prompt = String.format(
                 "Knowing that the current date is: %s, and the patient: %s, having %d year old having %.2f cm height and %.2f kg weight with a BMI of %.2f. " +
                         "Average steps per day: %d, sedentary minutes per day: %d, resting heart rate: %.2f bpm; " +
                         "Average breathing rate: %.2f breaths per minute. " +
