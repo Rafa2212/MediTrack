@@ -7,30 +7,21 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import java.time.LocalDateTime;
-
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 21;
+    private static final int DATABASE_VERSION = 29; // Incremented to trigger database upgrade
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
     public static final String TABLE_MEDICATIONS = "medications";
     public static final String TABLE_USER_MEDICATIONS = "user_medications";
+    public static final String TABLE_DOCTOR_PATIENTS = "doctor_patients";
+    public static final String TABLE_MEDICAL_REPORTS = "medical_reports";
 
     public static final String COLUMN_USER_ID = "id";
     public static final String COLUMN_USERNAME = "username";
     public static final String COLUMN_PASSWORD = "password";
-
-    public static final String COLUMN_MEDICATION_ID = "medication_id";
-    public static final String COLUMN_MEDICATION_DESCRIPTION = "medication_description";
-
-    public static final String COLUMN_USER_MEDICATION_ID = "user_medication_id";
-    public static final String COLUMN_USER_ID_FK = "user_id_fk";
-    public static final String COLUMN_MEDICATION_ID_FK = "medication_id_fk";
-    public static final String COLUMN_FREQUENCY = "frequency";
-    public static final String COLUMN_DOSAGE = "dosage";
-    public static final String COLUMN_QUANTITY_LEFT = "quantity_id_fk";
+    public static final String COLUMN_USER_ROLE = "role";
 
     public static final String TABLE_PROFILE = "profile";
     public static final String COLUMN_NAME = "name";
@@ -56,6 +47,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_SHAREDPREF_KEY = "key_string";
     public static final String COLUMN_SHAREDPREF_VALUE = "value";
 
+    public static final String COLUMN_DOCTOR_PATIENT_ID = "id";
+    public static final String COLUMN_DOCTOR_ID_FK = "doctor_id_fk";
+    public static final String COLUMN_PATIENT_ID_FK = "patient_id_fk";
+
+    // Medical Reports table columns
+    public static final String COLUMN_REPORT_ID = "report_id";
+    public static final String COLUMN_REPORT_DATE = "report_date";
+    public static final String COLUMN_REPORT_CONTENT = "report_content";
+    public static final String COLUMN_REPORT_PATH = "report_path";
+
     private static final String CREATE_TABLE_DISEASES = "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES
             + " (" + COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
             + COLUMN_DISEASE_DESCRIPTION + " TEXT, " + COLUMN_ICD10 + " TEXT)";
@@ -71,30 +72,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String CREATE_TABLE_PROFILE = "CREATE TABLE IF NOT EXISTS " + TABLE_PROFILE
             + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_NAME + " TEXT, "
             + COLUMN_AGE + " INTEGER, " + COLUMN_HEIGHT + " FLOAT, "
-            + COLUMN_WEIGHT + " FLOAT, " + COLUMN_LAST_MED_REP + " TEXT ) ";
+            + COLUMN_WEIGHT + " FLOAT, " + COLUMN_LAST_MED_REP + " TEXT, "
+            + "body_fat_percentage FLOAT, "
+            + "blood_pressure_systolic INTEGER, "
+            + "blood_pressure_diastolic INTEGER, "
+            + "resting_heart_rate INTEGER, "
+            + "blood_glucose FLOAT, "
+            + "cholesterol_total FLOAT, "
+            + "cholesterol_hdl FLOAT, "
+            + "cholesterol_ldl FLOAT, "
+            + "health_score INTEGER ) ";
 
     private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS
             + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USERNAME + " TEXT, "
-            + COLUMN_PASSWORD + " TEXT)";
-
-    private static final String CREATE_TABLE_MEDICATIONS = "CREATE TABLE IF NOT EXISTS "
-            + TABLE_MEDICATIONS + " (" + COLUMN_MEDICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + COLUMN_MEDICATION_DESCRIPTION + " TEXT, " + COLUMN_FREQUENCY + " TEXT)";
-
-    private static final String CREATE_TABLE_USER_MEDICATIONS = "CREATE TABLE IF NOT EXISTS "
-            + TABLE_USER_MEDICATIONS + " (" + COLUMN_USER_MEDICATION_ID
-            + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USER_ID_FK + " INTEGER, "
-            + COLUMN_MEDICATION_ID_FK + " INTEGER, " + COLUMN_QUANTITY_LEFT + " INTEGER, " + COLUMN_DOSAGE
-            + " INTEGER, "
-            + "FOREIGN KEY (" + COLUMN_USER_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID
-            + "), "
-            + "FOREIGN KEY (" + COLUMN_MEDICATION_ID_FK + ") REFERENCES " + TABLE_MEDICATIONS + "("
-            + COLUMN_MEDICATION_ID + "))";
+            + COLUMN_PASSWORD + " TEXT, " + COLUMN_USER_ROLE + " TEXT DEFAULT 'patient')";
 
     private static final String CREATE_TABLE_SHAREDPREF = "CREATE TABLE IF NOT EXISTS "
             + TABLE_SHAREDPREF + " (" + COLUMN_SHAREDPREF_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
             + COLUMN_SHAREDPREF_USER_ID + " INTEGER, " + COLUMN_SHAREDPREF_KEY + " TEXT, "
             + COLUMN_SHAREDPREF_VALUE + " TEXT)";
+
+    private static final String CREATE_TABLE_DOCTOR_PATIENTS = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_DOCTOR_PATIENTS + " (" + COLUMN_DOCTOR_PATIENT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_DOCTOR_ID_FK + " INTEGER, " + COLUMN_PATIENT_ID_FK + " INTEGER, "
+            + "FOREIGN KEY (" + COLUMN_DOCTOR_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "), "
+            + "FOREIGN KEY (" + COLUMN_PATIENT_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
+
+    private static final String CREATE_TABLE_MEDICAL_REPORTS = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_MEDICAL_REPORTS + " (" + COLUMN_REPORT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_PATIENT_ID_FK + " INTEGER, " + COLUMN_REPORT_DATE + " TEXT, "
+            + COLUMN_REPORT_CONTENT + " TEXT, " + COLUMN_REPORT_PATH + " TEXT, "
+            + "FOREIGN KEY (" + COLUMN_PATIENT_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -110,12 +118,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_TABLE_USERS);
-        db.execSQL(CREATE_TABLE_MEDICATIONS);
-        db.execSQL(CREATE_TABLE_USER_MEDICATIONS);
         db.execSQL(CREATE_TABLE_PROFILE);
         db.execSQL(CREATE_TABLE_DISEASES);
         db.execSQL(CREATE_TABLE_USER_DISEASES);
         db.execSQL(CREATE_TABLE_SHAREDPREF);
+        db.execSQL(CREATE_TABLE_DOCTOR_PATIENTS);
+        db.execSQL(CREATE_TABLE_MEDICAL_REPORTS);
     }
 
     @Override
@@ -127,28 +135,97 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_DISEASES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_DISEASES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_SHAREDPREF);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_DOCTOR_PATIENTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICAL_REPORTS);
 
         onCreate(db);
     }
 
     public UserProfile getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
+        UserProfile userProfile = null;
 
-        String[] columns = {COLUMN_NAME, COLUMN_AGE, COLUMN_HEIGHT, COLUMN_WEIGHT, COLUMN_LAST_MED_REP};
+        String[] columns = {
+            COLUMN_NAME, 
+            COLUMN_AGE, 
+            COLUMN_HEIGHT, 
+            COLUMN_WEIGHT, 
+            COLUMN_LAST_MED_REP,
+            "body_fat_percentage",
+            "blood_pressure_systolic",
+            "blood_pressure_diastolic",
+            "resting_heart_rate",
+            "blood_glucose",
+            "cholesterol_total",
+            "cholesterol_hdl",
+            "cholesterol_ldl",
+            "health_score"
+        };
 
         Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[] {userId},
                 null, null, null, null);
-        if (cursor != null && cursor.moveToFirst()) {
-            @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
-            @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
-            @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
-            @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
-            @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
-            return new UserProfile(name, age, height, weight, lastMedicalReport);
+        try {
+            if (cursor != null && cursor.moveToFirst()) {
+                @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
+                @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
+                @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
+                @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
+                @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
+
+                userProfile = new UserProfile(name, age, height, weight, lastMedicalReport);
+
+                // Get additional health metrics
+                @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex("body_fat_percentage"));
+                if (bodyFatPercentage > 0) {
+                    userProfile.setBodyFatPercentage(bodyFatPercentage);
+                }
+
+                @SuppressLint("Range") int bloodPressureSystolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_systolic"));
+                if (bloodPressureSystolic > 0) {
+                    userProfile.setBloodPressureSystolic(bloodPressureSystolic);
+                }
+
+                @SuppressLint("Range") int bloodPressureDiastolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_diastolic"));
+                if (bloodPressureDiastolic > 0) {
+                    userProfile.setBloodPressureDiastolic(bloodPressureDiastolic);
+                }
+
+                @SuppressLint("Range") int restingHeartRate = cursor.getInt(cursor.getColumnIndex("resting_heart_rate"));
+                if (restingHeartRate > 0) {
+                    userProfile.setRestingHeartRate(restingHeartRate);
+                }
+
+                @SuppressLint("Range") float bloodGlucose = cursor.getFloat(cursor.getColumnIndex("blood_glucose"));
+                if (bloodGlucose > 0) {
+                    userProfile.setBloodGlucose(bloodGlucose);
+                }
+
+                @SuppressLint("Range") float cholesterolTotal = cursor.getFloat(cursor.getColumnIndex("cholesterol_total"));
+                if (cholesterolTotal > 0) {
+                    userProfile.setCholesterolTotal(cholesterolTotal);
+                }
+
+                @SuppressLint("Range") float cholesterolHDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_hdl"));
+                if (cholesterolHDL > 0) {
+                    userProfile.setCholesterolHDL(cholesterolHDL);
+                }
+
+                @SuppressLint("Range") float cholesterolLDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_ldl"));
+                if (cholesterolLDL > 0) {
+                    userProfile.setCholesterolLDL(cholesterolLDL);
+                }
+
+                @SuppressLint("Range") int healthScore = cursor.getInt(cursor.getColumnIndex("health_score"));
+                if (healthScore > 0) {
+                    userProfile.setHealthScore(healthScore);
+                }
+            }
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
-        assert cursor != null;
-        cursor.close();
-        return null;
+        return userProfile;
     }
 
     public void insertOrUpdateProfile(String userId, UserProfile userProfile) {
@@ -161,6 +238,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_HEIGHT, userProfile.getHeight());
         values.put(COLUMN_WEIGHT, userProfile.getWeight());
         values.put(COLUMN_LAST_MED_REP, userProfile.getLastMedicalReport());
+
+        // Add additional health metrics
+        values.put("body_fat_percentage", userProfile.getBodyFatPercentage());
+        values.put("blood_pressure_systolic", userProfile.getBloodPressureSystolic());
+        values.put("blood_pressure_diastolic", userProfile.getBloodPressureDiastolic());
+        values.put("resting_heart_rate", userProfile.getRestingHeartRate());
+        values.put("blood_glucose", userProfile.getBloodGlucose());
+        values.put("cholesterol_total", userProfile.getCholesterolTotal());
+        values.put("cholesterol_hdl", userProfile.getCholesterolHDL());
+        values.put("cholesterol_ldl", userProfile.getCholesterolLDL());
+        values.put("health_score", userProfile.getHealthScore());
 
         Cursor cursor = db.query(
                 TABLE_PROFILE, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
@@ -184,6 +272,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_USER_ID,
                 COLUMN_USERNAME,
                 COLUMN_PASSWORD,
+                COLUMN_USER_ROLE
         };
 
         Cursor cursor =
@@ -193,22 +282,55 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if (cursor.moveToFirst()) {
             @SuppressLint("Range")
             String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+            @SuppressLint("Range")
+            String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
             UserProfile userProfile = getUserProfile(userId);
             cursor.close();
-            return new User(userId, userProfile);
+            return new User(userId, userProfile, role);
         }
         cursor.close();
         return null;
     }
 
+    /**
+     * This method is deprecated and should not be used for regular user registration.
+     * Use addTestUser for test purposes only.
+     */
     public long addUser(String username, String password) {
+        // This method is intentionally disabled to prevent regular user registration
+        // Only test users created by AddDoctorTest class should be used
+        return -1;
+    }
+
+    /**
+     * This method is deprecated and should not be used for regular user registration.
+     * Use addTestUser for test purposes only.
+     */
+    public long addUser(String username, String password, String role) {
+        // This method is intentionally disabled to prevent regular user registration
+        // Only test users created by AddDoctorTest class should be used
+        return -1;
+    }
+
+    /**
+     * Adds a test user to the database. This method should only be used by the AddDoctorTest class.
+     */
+    public long addTestUser(String username, String password, String role) {
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
         values.put(COLUMN_USERNAME, username);
         values.put(COLUMN_PASSWORD, password);
+        values.put(COLUMN_USER_ROLE, role);
 
         return db.insert(TABLE_USERS, null, values);
+    }
+
+    /**
+     * Adds a doctor user to the database. This method should only be used by the AddDoctorTest class.
+     */
+    public long addDoctor(String username, String password) {
+        return addTestUser(username, password, "doctor");
     }
 
     public User getUser(String userId) {
@@ -218,15 +340,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_USER_ID,
                 COLUMN_USERNAME,
                 COLUMN_PASSWORD,
+                COLUMN_USER_ROLE
         };
 
         Cursor cursor = db.query(
                 TABLE_USERS, columns, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
 
         if (cursor.getCount() == 1 && cursor.moveToFirst()) {
+            @SuppressLint("Range")
+            String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
             UserProfile userProfile = getUserProfile(userId);
             cursor.close();
-            return new User(userId, userProfile);
+            return new User(userId, userProfile, role);
         }
         cursor.close();
         return null;
@@ -261,5 +386,267 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         return null;
+    }
+
+    public java.util.List<User> getAllDoctors() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<User> doctors = new java.util.ArrayList<>();
+
+        String[] columns = {
+                COLUMN_USER_ID,
+                COLUMN_USERNAME,
+                COLUMN_PASSWORD,
+                COLUMN_USER_ROLE
+        };
+
+        Cursor cursor = db.query(
+                TABLE_USERS, columns, COLUMN_USER_ROLE + "=?", new String[] {"doctor"}, null, null, null);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+                @SuppressLint("Range")
+                String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
+                UserProfile userProfile = getUserProfile(userId);
+                doctors.add(new User(userId, userProfile, role));
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return doctors;
+    }
+
+    public boolean isDoctor(String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String[] columns = { COLUMN_USER_ROLE };
+
+        Cursor cursor = db.query(
+                TABLE_USERS, columns, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
+
+        boolean isDoctor = false;
+
+        if (cursor != null && cursor.moveToFirst()) {
+            @SuppressLint("Range")
+            String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
+            isDoctor = "doctor".equals(role);
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return isDoctor;
+    }
+
+    public long assignPatientToDoctor(String doctorId, String patientId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        // Check if the doctor is actually a doctor
+        if (!isDoctor(doctorId)) {
+            return -1;
+        }
+
+        // Check if the patient is actually a patient
+        if (isDoctor(patientId)) {
+            return -1;
+        }
+
+        // Check if the assignment already exists
+        if (isPatientAssignedToDoctor(doctorId, patientId)) {
+            return -1;
+        }
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_DOCTOR_ID_FK, doctorId);
+        values.put(COLUMN_PATIENT_ID_FK, patientId);
+
+        return db.insert(TABLE_DOCTOR_PATIENTS, null, values);
+    }
+
+    public boolean isPatientAssignedToDoctor(String doctorId, String patientId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query(
+                TABLE_DOCTOR_PATIENTS, 
+                new String[] { COLUMN_DOCTOR_PATIENT_ID }, 
+                COLUMN_DOCTOR_ID_FK + "=? AND " + COLUMN_PATIENT_ID_FK + "=?", 
+                new String[] { doctorId, patientId }, 
+                null, null, null);
+
+        boolean isAssigned = cursor != null && cursor.getCount() > 0;
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return isAssigned;
+    }
+
+    public java.util.List<User> getPatientsForDoctor(String doctorId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<User> patients = new java.util.ArrayList<>();
+
+        // Check if the doctor is actually a doctor
+        if (!isDoctor(doctorId)) {
+            return patients;
+        }
+
+        String query = "SELECT p." + COLUMN_USER_ID + ", p." + COLUMN_USERNAME + ", p." + COLUMN_USER_ROLE +
+                " FROM " + TABLE_USERS + " p" +
+                " INNER JOIN " + TABLE_DOCTOR_PATIENTS + " dp" +
+                " ON p." + COLUMN_USER_ID + " = dp." + COLUMN_PATIENT_ID_FK +
+                " WHERE dp." + COLUMN_DOCTOR_ID_FK + " = ?";
+
+        Cursor cursor = db.rawQuery(query, new String[] { doctorId });
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+                @SuppressLint("Range")
+                String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
+                UserProfile userProfile = getUserProfile(userId);
+                patients.add(new User(userId, userProfile, role));
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return patients;
+    }
+
+    /**
+     * Saves a medical report to the database
+     * @param patientId The ID of the patient
+     * @param reportDate The date of the report
+     * @param reportContent The content of the report
+     * @param reportPath The path to the PDF file
+     * @return The ID of the newly inserted report, or -1 if the insertion failed
+     */
+    public long saveMedicalReport(String patientId, String reportDate, String reportContent, String reportPath) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        values.put(COLUMN_PATIENT_ID_FK, patientId);
+        values.put(COLUMN_REPORT_DATE, reportDate);
+        values.put(COLUMN_REPORT_CONTENT, reportContent);
+        values.put(COLUMN_REPORT_PATH, reportPath);
+
+        return db.insert(TABLE_MEDICAL_REPORTS, null, values);
+    }
+
+    /**
+     * Gets all medical reports for a patient
+     * @param patientId The ID of the patient
+     * @return A list of medical reports for the patient
+     */
+    public java.util.List<MedicalReport> getMedicalReportsForPatient(String patientId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<MedicalReport> reports = new java.util.ArrayList<>();
+
+        String[] columns = {
+            COLUMN_REPORT_ID,
+            COLUMN_PATIENT_ID_FK,
+            COLUMN_REPORT_DATE,
+            COLUMN_REPORT_CONTENT,
+            COLUMN_REPORT_PATH
+        };
+
+        String selection = COLUMN_PATIENT_ID_FK + "=?";
+        String[] selectionArgs = { patientId };
+        String orderBy = COLUMN_REPORT_DATE + " DESC";
+
+        Cursor cursor = db.query(
+            TABLE_MEDICAL_REPORTS,
+            columns,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            orderBy
+        );
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String reportId = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_ID));
+                @SuppressLint("Range")
+                String reportDate = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_DATE));
+                @SuppressLint("Range")
+                String reportContent = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_CONTENT));
+                @SuppressLint("Range")
+                String reportPath = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_PATH));
+
+                MedicalReport report = new MedicalReport(reportId, patientId, reportDate, reportContent, reportPath);
+                reports.add(report);
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return reports;
+    }
+
+    /**
+     * Gets the most recent medical report for a patient
+     * @param patientId The ID of the patient
+     * @return The most recent medical report for the patient, or null if no report exists
+     */
+    public MedicalReport getLatestMedicalReportForPatient(String patientId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String[] columns = {
+            COLUMN_REPORT_ID,
+            COLUMN_PATIENT_ID_FK,
+            COLUMN_REPORT_DATE,
+            COLUMN_REPORT_CONTENT,
+            COLUMN_REPORT_PATH
+        };
+
+        String selection = COLUMN_PATIENT_ID_FK + "=?";
+        String[] selectionArgs = { patientId };
+        String orderBy = COLUMN_REPORT_DATE + " DESC";
+        String limit = "1";
+
+        Cursor cursor = db.query(
+            TABLE_MEDICAL_REPORTS,
+            columns,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            orderBy,
+            limit
+        );
+
+        MedicalReport report = null;
+
+        if (cursor != null && cursor.moveToFirst()) {
+            @SuppressLint("Range")
+            String reportId = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_ID));
+            @SuppressLint("Range")
+            String reportDate = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_DATE));
+            @SuppressLint("Range")
+            String reportContent = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_CONTENT));
+            @SuppressLint("Range")
+            String reportPath = cursor.getString(cursor.getColumnIndex(COLUMN_REPORT_PATH));
+
+            report = new MedicalReport(reportId, patientId, reportDate, reportContent, reportPath);
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return report;
     }
 }

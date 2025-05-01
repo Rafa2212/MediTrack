@@ -2,16 +2,20 @@ package com.example.myapplication;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
 import androidx.appcompat.widget.AppCompatAutoCompleteTextView;
+import androidx.core.content.FileProvider;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
@@ -81,6 +85,79 @@ public class WeeklyReportActivity extends BaseActivity {
         }
 
         Button buttonSubmitReport = findViewById(R.id.buttonSubmitReport);
+        Button buttonViewLastReport = findViewById(R.id.buttonViewLastReport);
+        TextView textViewTimer = findViewById(R.id.textViewTimer);
+
+        // Check if user can submit a report
+        if (user != null && user.getUserProfile() != null) {
+            UserProfile userProfile = user.getUserProfile();
+            boolean canSubmitReport = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
+
+            // Check if there's a last report available
+            boolean hasLastReport = userProfile.getLastMedicalReport() != null && !userProfile.getLastMedicalReport().isEmpty();
+
+            if (hasLastReport) {
+                // Check if there's a PDF file for this user
+                File reportsDir = new File(getFilesDir(), "reports");
+                if (reportsDir.exists() && reportsDir.isDirectory()) {
+                    File[] files = reportsDir.listFiles((dir, name) -> name.startsWith("report_" + curr_user) && name.endsWith(".pdf"));
+                    if (files != null && files.length > 0) {
+                        // Sort files by last modified date to get the most recent one
+                        java.util.Arrays.sort(files, (f1, f2) -> Long.compare(f2.lastModified(), f1.lastModified()));
+
+                        // Show the button to view the last report
+                        buttonViewLastReport.setVisibility(View.VISIBLE);
+
+                        // Set up the button click listener
+                        buttonViewLastReport.setOnClickListener(viewReportBtn -> {
+                            try {
+                                // Get the latest report from the database
+                                MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(curr_user);
+
+                                if (latestReport != null && !latestReport.getReportPath().isEmpty()) {
+                                    // Open the PDF file using the path from the database
+                                    File file = new File(latestReport.getReportPath());
+                                    if (file.exists()) {
+                                        Uri uri = FileProvider.getUriForFile(WeeklyReportActivity.this,
+                                                getPackageName() + ".provider", file);
+
+                                        Intent intent = new Intent(Intent.ACTION_VIEW);
+                                        intent.setDataAndType(uri, "application/pdf");
+                                        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                                        startActivity(intent);
+                                    } else {
+                                        Toast.makeText(WeeklyReportActivity.this, "PDF file not found", Toast.LENGTH_SHORT).show();
+                                    }
+                                } else {
+                                    Toast.makeText(WeeklyReportActivity.this, "No report available", Toast.LENGTH_SHORT).show();
+                                }
+                            } catch (Exception e) {
+                                Log.e("WeeklyReportActivity", "Error opening PDF file", e);
+                                Toast.makeText(WeeklyReportActivity.this, "Error opening PDF file", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        buttonViewLastReport.setVisibility(View.GONE);
+                    }
+                } else {
+                    buttonViewLastReport.setVisibility(View.GONE);
+                }
+            } else {
+                buttonViewLastReport.setVisibility(View.GONE);
+            }
+
+            if (!canSubmitReport) {
+                // Calculate time remaining until next report
+                String timeRemaining = calculateTimeRemaining(userProfile.getLastMedicalReport());
+                textViewTimer.setText(getString(R.string.next_report_time, timeRemaining));
+                textViewTimer.setVisibility(View.VISIBLE);
+                buttonSubmitReport.setEnabled(false);
+            } else {
+                textViewTimer.setVisibility(View.GONE);
+                buttonSubmitReport.setEnabled(true);
+            }
+        }
 
         buttonSubmitReport.setOnClickListener(v -> {
             String firstQ = editTextFirstQ.getText().toString();
@@ -107,7 +184,7 @@ public class WeeklyReportActivity extends BaseActivity {
                 dialog.findViewById(R.id.progress);
                 TextView textView = dialog.findViewById(R.id.text);
 
-                textView.setText("Connecting to Fitbit...");
+                textView.setText("Logging feedback...");
 
                 dialog.setCancelable(false);
 
@@ -120,7 +197,7 @@ public class WeeklyReportActivity extends BaseActivity {
 
                 boolean isOlder = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
 
-                if (true) {
+                if (isOlder) {
 
                     FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
                     fb.updateUserProfile(userProfile);
@@ -153,14 +230,51 @@ public class WeeklyReportActivity extends BaseActivity {
                             ChatCompletionResult result = service.createChatCompletion(completionRequest);
                             String weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
 
+                            // Get current timestamp for the report
+                            String reportDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+                            // Create PDF with patient ID for unique filename
                             PDFGeneration pdfGeneration = new PDFGeneration(getApplicationContext());
-                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse);
-                            pdfGeneration.openPDF(pdfFile);
+                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse, curr_user);
 
-                            userProfile.setLastMedicalReport(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-                            dbHelper.insertOrUpdateProfile(curr_user, userProfile);
+                            // Don't open PDF for patients, just save it
+                            // The PDF will be available for doctors to view in MedicalReportsActivity
 
-                            dialog.dismiss();
+                            handler.post(() -> {
+                                // Save the report in the database
+                                long reportId = dbHelper.saveMedicalReport(
+                                    curr_user, 
+                                    reportDate, 
+                                    weeklyReportResponse, 
+                                    pdfFile.getAbsolutePath()
+                                );
+
+                                if (reportId != -1) {
+                                    // Update the lastMedicalReport timestamp only after all data is processed and saved
+                                    userProfile.setLastMedicalReport(reportDate);
+                                    dbHelper.insertOrUpdateProfile(curr_user, userProfile);
+
+                                    // Disable the submit button after successful submission
+                                    Button submitButton = findViewById(R.id.buttonSubmitReport);
+                                    submitButton.setEnabled(false);
+
+                                    // Show the timer for next available report
+                                    TextView timerView = findViewById(R.id.textViewTimer);
+                                    String timeRemaining = calculateTimeRemaining(userProfile.getLastMedicalReport());
+                                    timerView.setText(getString(R.string.next_report_time, timeRemaining));
+                                    timerView.setVisibility(View.VISIBLE);
+
+                                    Snackbar.make(findViewById(android.R.id.content), 
+                                            "Weekly feedback logged successfully. Your doctor will be able to view your report.", 
+                                            Snackbar.LENGTH_LONG).show();
+                                } else {
+                                    Snackbar.make(findViewById(android.R.id.content),
+                                            "Error saving report to database. Please try again.",
+                                            Snackbar.LENGTH_LONG).show();
+                                }
+
+                                dialog.dismiss();
+                            });
 
                         } catch (Exception e) {
                             dialog.dismiss();
@@ -254,13 +368,67 @@ public class WeeklyReportActivity extends BaseActivity {
     }
 
     private boolean isDateOlderThanAWeek(String dateStr) {
+        // First, check if there's a report in the database from the last week
+        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "");
+        if (!userId.isEmpty()) {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
+            MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(userId);
+
+            if (latestReport != null && latestReport.getReportDate() != null && !latestReport.getReportDate().isEmpty()) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+                    LocalDateTime reportDate = LocalDateTime.parse(latestReport.getReportDate(), formatter);
+                    LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+
+                    // If the latest report is less than a week old, the user can't submit a new report
+                    if (reportDate.isAfter(oneWeekAgo)) {
+                        return false;
+                    }
+                } catch (Exception e) {
+                    Log.e("WeeklyReportActivity", "Error parsing report date", e);
+                }
+            }
+        }
+
+        // If no recent report in the database, check the lastMedicalReport timestamp in the UserProfile
         if (dateStr == null || dateStr.isEmpty()) {
             return true;
         }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"); // Adjust pattern as needed
-        LocalDateTime date = LocalDateTime.parse(dateStr, formatter);
-        LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
-        return date.isBefore(oneWeekAgo);
+
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+            LocalDateTime date = LocalDateTime.parse(dateStr, formatter);
+            LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
+            return date.isBefore(oneWeekAgo);
+        } catch (Exception e) {
+            Log.e("WeeklyReportActivity", "Error parsing lastMedicalReport date", e);
+            return true;
+        }
+    }
+
+    private String calculateTimeRemaining(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) {
+            return "now";
+        }
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        LocalDateTime lastReportDate = LocalDateTime.parse(dateStr, formatter);
+        LocalDateTime nextAvailableDate = lastReportDate.plusWeeks(1);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isAfter(nextAvailableDate)) {
+            return "now";
+        }
+
+        long daysUntil = java.time.Duration.between(now, nextAvailableDate).toDays();
+        long hoursUntil = java.time.Duration.between(now, nextAvailableDate).toHours() % 24;
+
+        if (daysUntil > 0) {
+            return daysUntil + " days, " + hoursUntil + " hours";
+        } else {
+            return hoursUntil + " hours";
+        }
     }
 
     private void addDiseaseQuestion(LinearLayout parentLayout, Disease disease, String[] states) {

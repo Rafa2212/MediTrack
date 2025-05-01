@@ -4,13 +4,18 @@
                                                    android:layout_height="match_parent"
                                                    android:background="@android:color/white">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/inner_layout"
+    <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:padding="16dp"
+            android:fillViewport="true"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toTopOf="@id/bottom_navigation">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/inner_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
 
         <ImageView
                 android:id="@+id/image"
@@ -102,23 +107,60 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/editTextBPLayout"
+                android:id="@+id/editTextBodyFatLayout"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/blood_pressure"
-                android:visibility="invisible"
+                android:hint="@string/body_fat"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
                 app:layout_constraintTop_toBottomOf="@+id/editTextWeightLayout"
                 app:layout_constraintStart_toStartOf="parent">
 
             <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editTextBP"
+                    android:id="@+id/editTextBodyFat"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:visibility="invisible"
                     android:inputType="numberDecimal" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextBPSystolicLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/blood_pressure_systolic"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextBodyFatLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextBPSystolic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextBPDiastolicLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/blood_pressure_diastolic"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextBPSystolicLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextBPDiastolic"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -128,40 +170,116 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/heartbeat"
-                android:visibility="invisible"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
-                app:layout_constraintTop_toBottomOf="@+id/editTextBPLayout"
+                app:layout_constraintTop_toBottomOf="@+id/editTextBPDiastolicLayout"
                 app:layout_constraintStart_toStartOf="parent">
 
             <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/editTextHR"
                     android:layout_width="match_parent"
-                    android:visibility="invisible"
                     android:layout_height="wrap_content"
                     android:inputType="number" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextBloodGlucoseLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/blood_glucose"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextHRLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextBloodGlucose"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextCholesterolTotalLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/cholesterol_total"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextBloodGlucoseLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextCholesterolTotal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextCholesterolHDLLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/cholesterol_hdl"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextCholesterolTotalLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextCholesterolHDL"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextCholesterolLDLLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/cholesterol_ldl"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextCholesterolHDLLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextCholesterolLDL"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
         <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonSubmitProfile"
-                android:layout_width="0dp"
+                android:layout_width="200dp"
                 android:layout_height="wrap_content"
                 android:text="@string/submit"
                 android:textColor="@color/black"
                 android:backgroundTint="@color/logoColor"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/editTextHRLayout"
+                app:layout_constraintTop_toBottomOf="@+id/editTextCholesterolLDLLayout"
                 android:layout_marginTop="16dp"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:transitionName="bottomNavTransition"
+            app:labelVisibilityMode="selected"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"

@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -39,21 +40,16 @@ public class ProfileSetupActivity extends BaseActivity {
 
         EditText editTextName = findViewById(R.id.editTextName);
         EditText editTextAge = findViewById(R.id.editTextAge);
-
-        //TODO: implementare pentru Fitbit API: intai faci un prompt cu prepare pentru un structured format (il gandesti inainte)
-        // si dupa abia un prompt mare cu toate datele pentru medical report
-        //TODO: implement on a new page activity 3-4 questions about how did you felt this week
-        //TODO: integrate the new questions and get your medical report button with the new logic and
-        // the ICD10 codes add them only based on the API to verify if there are in the right format and take them into account
-        // when you press get your medical report
-        //TODO: implement a logic so the user can only do this once a week
-        //TODO: remove the prompt when you save the user profile
-        //TODO: do the prompt only on the get your medical report si eventual implementare intr-un PDF
-
-        //rough estimate: 1 zi jumate (marti, miercuri)
-
         EditText editTextHeight = findViewById(R.id.editTextHeight);
         EditText editTextWeight = findViewById(R.id.editTextWeight);
+        EditText editTextBodyFat = findViewById(R.id.editTextBodyFat);
+        EditText editTextBPSystolic = findViewById(R.id.editTextBPSystolic);
+        EditText editTextBPDiastolic = findViewById(R.id.editTextBPDiastolic);
+        EditText editTextHR = findViewById(R.id.editTextHR);
+        EditText editTextBloodGlucose = findViewById(R.id.editTextBloodGlucose);
+        EditText editTextCholesterolTotal = findViewById(R.id.editTextCholesterolTotal);
+        EditText editTextCholesterolHDL = findViewById(R.id.editTextCholesterolHDL);
+        EditText editTextCholesterolLDL = findViewById(R.id.editTextCholesterolLDL);
         Button buttonSubmitProfile = findViewById(R.id.buttonSubmitProfile);
 
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
@@ -66,6 +62,32 @@ public class ProfileSetupActivity extends BaseActivity {
             editTextAge.setText(String.valueOf(userProfile.getAge()));
             editTextHeight.setText(String.valueOf(userProfile.getHeight()));
             editTextWeight.setText(String.valueOf(userProfile.getWeight()));
+
+            // Set values for additional health metrics if they exist
+            if (userProfile.getBodyFatPercentage() > 0) {
+                editTextBodyFat.setText(String.valueOf(userProfile.getBodyFatPercentage()));
+            }
+            if (userProfile.getBloodPressureSystolic() > 0) {
+                editTextBPSystolic.setText(String.valueOf(userProfile.getBloodPressureSystolic()));
+            }
+            if (userProfile.getBloodPressureDiastolic() > 0) {
+                editTextBPDiastolic.setText(String.valueOf(userProfile.getBloodPressureDiastolic()));
+            }
+            if (userProfile.getRestingHeartRate() > 0) {
+                editTextHR.setText(String.valueOf(userProfile.getRestingHeartRate()));
+            }
+            if (userProfile.getBloodGlucose() > 0) {
+                editTextBloodGlucose.setText(String.valueOf(userProfile.getBloodGlucose()));
+            }
+            if (userProfile.getCholesterolTotal() > 0) {
+                editTextCholesterolTotal.setText(String.valueOf(userProfile.getCholesterolTotal()));
+            }
+            if (userProfile.getCholesterolHDL() > 0) {
+                editTextCholesterolHDL.setText(String.valueOf(userProfile.getCholesterolHDL()));
+            }
+            if (userProfile.getCholesterolLDL() > 0) {
+                editTextCholesterolLDL.setText(String.valueOf(userProfile.getCholesterolLDL()));
+            }
         }
 
         buttonSubmitProfile.setOnClickListener(v -> {
@@ -77,7 +99,7 @@ public class ProfileSetupActivity extends BaseActivity {
             if (TextUtils.isEmpty(name) || TextUtils.isEmpty(ageTxt) || TextUtils.isEmpty(heightTxt)
                     || TextUtils.isEmpty(weightTxt)) {
                 Snackbar
-                        .make(findViewById(android.R.id.content), "Please fill out all fields",
+                        .make(findViewById(android.R.id.content), "Please fill out all required fields!",
                                 Snackbar.LENGTH_SHORT)
                         .show();
             } else {
@@ -98,78 +120,179 @@ public class ProfileSetupActivity extends BaseActivity {
                 float height = Float.parseFloat(heightTxt);
                 float weight = Float.parseFloat(weightTxt);
 
-                UserProfile userProfile =
-                        new UserProfile(name, age, height, weight, "");
+                UserProfile userProfile = new UserProfile(name, age, height, weight, "");
+
+                // Get values from additional health metrics fields
+                String bodyFatTxt = editTextBodyFat.getText().toString();
+                String bpSystolicTxt = editTextBPSystolic.getText().toString();
+                String bpDiastolicTxt = editTextBPDiastolic.getText().toString();
+                String hrTxt = editTextHR.getText().toString();
+                String bloodGlucoseTxt = editTextBloodGlucose.getText().toString();
+                String cholesterolTotalTxt = editTextCholesterolTotal.getText().toString();
+                String cholesterolHDLTxt = editTextCholesterolHDL.getText().toString();
+                String cholesterolLDLTxt = editTextCholesterolLDL.getText().toString();
+
+                // Set additional health metrics if provided
+                if (!bodyFatTxt.isEmpty()) {
+                    userProfile.setBodyFatPercentage(Float.parseFloat(bodyFatTxt));
+                }
+                if (!bpSystolicTxt.isEmpty()) {
+                    userProfile.setBloodPressureSystolic(Integer.parseInt(bpSystolicTxt));
+                }
+                if (!bpDiastolicTxt.isEmpty()) {
+                    userProfile.setBloodPressureDiastolic(Integer.parseInt(bpDiastolicTxt));
+                }
+                if (!hrTxt.isEmpty()) {
+                    userProfile.setRestingHeartRate(Integer.parseInt(hrTxt));
+                }
+                if (!bloodGlucoseTxt.isEmpty()) {
+                    userProfile.setBloodGlucose(Float.parseFloat(bloodGlucoseTxt));
+                }
+                if (!cholesterolTotalTxt.isEmpty()) {
+                    userProfile.setCholesterolTotal(Float.parseFloat(cholesterolTotalTxt));
+                }
+                if (!cholesterolHDLTxt.isEmpty()) {
+                    userProfile.setCholesterolHDL(Float.parseFloat(cholesterolHDLTxt));
+                }
+                if (!cholesterolLDLTxt.isEmpty()) {
+                    userProfile.setCholesterolLDL(Float.parseFloat(cholesterolLDLTxt));
+                }
+
                 dbHelper.insertOrUpdateProfile(curr_user, userProfile);
 
                 float heightInMeters = height / 100;
                 float BMI = weight / (heightInMeters * heightInMeters);
 
-                boolean exists = false;
-
+                // Always query OpenAI for updated interpretations
                 SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-                Map<String, ?> allEntries = preferences.getAll();
-                for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-                    String[] key = entry.getKey().split("#");
-                    if (Objects.equals(key[0], "BMI") && Objects.equals(key[1], String.valueOf(BMI))) {
-                        exists = true;
-                    }
-                }
 
-                if (!exists) {
-                    ExecutorService executor = Executors.newSingleThreadExecutor();
+                ExecutorService executor = Executors.newSingleThreadExecutor();
 
-                    Handler handler = new Handler(Looper.getMainLooper());
+                Handler handler = new Handler(Looper.getMainLooper());
 
-                    OpenAiService service = new OpenAiService(TokenData.OPEN_AI_SERVICE_KEY.getToken());
+                OpenAiService service = new OpenAiService(TokenData.OPEN_AI_SERVICE_KEY.getToken());
 
-                    executor.execute(() -> {
-                        try {
+                executor.execute(() -> {
+                    try {
 
-                            String prompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
-                                    + " cm "
-                                    + " and " + userProfile.getWeight() + " kg and " + BMI
-                                    + "BMI. Show me some short insights if that is over average, under, possible diseases based on the BMI.";
+                        // Generate BMI interpretation
+                        String bmiPrompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
+                                + " cm "
+                                + " and " + userProfile.getWeight() + " kg and " + BMI
+                                + "BMI. Provide a detailed analysis of this BMI value, including health implications, potential risks, and personalized recommendations based on the person's age and measurements. Include specific advice for diet and exercise if appropriate.";
 
-                            ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
-                                    .model("gpt-3.5-turbo")
-                                    .messages(Arrays.asList(
-                                            new ChatMessage("user", prompt)
-                                    ))
-                                    .build();
+                        ChatCompletionRequest bmiRequest = ChatCompletionRequest.builder()
+                                .model("gpt-3.5-turbo")
+                                .messages(Arrays.asList(
+                                        new ChatMessage("user", bmiPrompt)
+                                ))
+                                .build();
 
-                            ChatCompletionResult result = service.createChatCompletion(completionRequest);
+                        ChatCompletionResult bmiResult = service.createChatCompletion(bmiRequest);
 
-                            String bmiResponse = result.getChoices().get(0).getMessage().getContent()
-                                    .replace('*', ' ')
-                                    .replace('#', ' ');
-                            String key = "BMI#" + BMI + "#" + LocalDateTime.now();
-                            long bmiId = dbHelper.insertOnSession(curr_user, key, bmiResponse);
+                        String bmiResponse = bmiResult.getChoices().get(0).getMessage().getContent()
+                                .replace('*', ' ')
+                                .replace('#', ' ');
+                        String bmiKey = "BMI#" + BMI + "#" + LocalDateTime.now();
+                        long bmiId = dbHelper.insertOnSession(curr_user, bmiKey, bmiResponse);
 
-                            SharedPreferences.Editor editor =
-                                    getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
-                            editor.putString(key, String.valueOf(bmiId));
-                            editor.apply();
+                        SharedPreferences.Editor editor =
+                                getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
+                        editor.putString(bmiKey, String.valueOf(bmiId));
 
-                            dialog.dismiss();
-                            Intent intent = new Intent(ProfileSetupActivity.this, AddDiseaseActivity.class);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            startActivity(intent);
+                        StringBuilder metabolicPrompt = new StringBuilder();
+                        metabolicPrompt.append(userProfile.getAge() + " year old having " + userProfile.getHeight() + " cm and " + userProfile.getWeight() + " kg");
 
-                        } catch (Exception e) {
-                            handler.post(()
-                                    -> Snackbar
-                                    .make(findViewById(android.R.id.content),
-                                            "Saving failed! Try again later!", Snackbar.LENGTH_SHORT)
-                                    .show());
+                        if (userProfile.getBodyFatPercentage() > 0) {
+                            metabolicPrompt.append(" with body fat percentage of " + userProfile.getBodyFatPercentage() + "%");
                         }
-                    });
-                } else {
-                    dialog.dismiss();
-                    Intent intent = new Intent(ProfileSetupActivity.this, DashboardActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                }
+
+                        if (userProfile.getBloodPressureSystolic() > 0 && userProfile.getBloodPressureDiastolic() > 0) {
+                            metabolicPrompt.append(", blood pressure " + userProfile.getBloodPressureSystolic() + "/" + userProfile.getBloodPressureDiastolic() + " mmHg");
+                        }
+
+                        if (userProfile.getRestingHeartRate() > 0) {
+                            metabolicPrompt.append(", resting heart rate " + userProfile.getRestingHeartRate() + " bpm");
+                        }
+
+                        if (userProfile.getBloodGlucose() > 0) {
+                            metabolicPrompt.append(", blood glucose " + userProfile.getBloodGlucose() + " mg/dL");
+                        }
+
+                        if (userProfile.getCholesterolTotal() > 0) {
+                            metabolicPrompt.append(", total cholesterol " + userProfile.getCholesterolTotal() + " mg/dL");
+
+                            if (userProfile.getCholesterolHDL() > 0) {
+                                metabolicPrompt.append(", HDL cholesterol " + userProfile.getCholesterolHDL() + " mg/dL");
+                            }
+
+                            if (userProfile.getCholesterolLDL() > 0) {
+                                metabolicPrompt.append(", LDL cholesterol " + userProfile.getCholesterolLDL() + " mg/dL");
+                            }
+                        }
+
+                        metabolicPrompt.append("\nPlease provide a detailed analysis of metabolic health based on these values, including:");
+                        metabolicPrompt.append("\n1. Overall metabolic health assessment");
+                        metabolicPrompt.append("\n2. Potential metabolic risks or concerns");
+                        metabolicPrompt.append("\n3. Specific recommendations for improving metabolic health");
+                        metabolicPrompt.append("\n4. Lifestyle changes that would benefit this individual");
+                        metabolicPrompt.append("\n5. A health score out of 100 that represents how well this patient compares to the average patient of similar age, height, and weight. Format this as 'HEALTH_SCORE: X' where X is a number between 0 and 100.");
+
+                        ChatCompletionRequest metabolicRequest = ChatCompletionRequest.builder()
+                                .model("gpt-3.5-turbo")
+                                .messages(Arrays.asList(
+                                        new ChatMessage("user", metabolicPrompt.toString())
+                                ))
+                                .build();
+
+                        ChatCompletionResult metabolicResult = service.createChatCompletion(metabolicRequest);
+
+                        String metabolicResponse = metabolicResult.getChoices().get(0).getMessage().getContent()
+                                .replace('*', ' ')
+                                .replace('#', ' ');
+                        String metabolicKey = "Metabolic#Balance#" + LocalDateTime.now();
+                        long metabolicId = dbHelper.insertOnSession(curr_user, metabolicKey, metabolicResponse);
+
+                        editor.putString(metabolicKey, String.valueOf(metabolicId));
+
+                        // Extract health score from the response
+                        int healthScore = 0;
+                        String[] lines = metabolicResponse.split("\n");
+                        for (String line : lines) {
+                            if (line.contains("HEALTH_SCORE")) {
+                                try {
+                                    String scoreStr = line.substring(line.indexOf(":") + 1).trim();
+                                    // Extract just the number
+                                    scoreStr = scoreStr.replaceAll("[^0-9]", "");
+                                    healthScore = Integer.parseInt(scoreStr);
+                                    // Ensure score is between 0 and 100
+                                    healthScore = Math.max(0, Math.min(100, healthScore));
+                                    break;
+                                } catch (Exception e) {
+                                    Log.e("ProfileSetupActivity", "Error parsing health score: " + e.getMessage());
+                                }
+                            }
+                        }
+
+                        // Set the health score in the user profile
+                        userProfile.setHealthScore(healthScore);
+                        // Save the updated profile with the health score
+                        dbHelper.insertOrUpdateProfile(curr_user, userProfile);
+                        editor.apply();
+
+                        dialog.dismiss();
+                        Intent intent = new Intent(ProfileSetupActivity.this, DashboardActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+
+                    } catch (Exception e) {
+                        handler.post(()
+                                -> Snackbar
+                                .make(findViewById(android.R.id.content),
+                                        "Saving failed! Try again later!", Snackbar.LENGTH_SHORT)
+                                .show());
+                    }
+                });
             }
         });
 

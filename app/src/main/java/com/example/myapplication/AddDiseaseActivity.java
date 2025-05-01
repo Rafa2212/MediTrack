@@ -44,7 +44,7 @@ public class AddDiseaseActivity
         CURRENT_USER_ID =
                 getSharedPreferences("PREFERENCE", MODE_PRIVATE).getString("userId", "default_value");
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        setupNavigation(bottomNav, R.id.menu_diseases);
+        //setupNavigation(bottomNav, R.id.menu_diseases);
 
         dbHelper = new DatabaseHelper(this);
 
@@ -292,7 +292,7 @@ public class AddDiseaseActivity
         Handler handler = new Handler(Looper.getMainLooper());
         try {
             executor.execute(() -> {
-                String regex = "^[A-TV-Z][0-9]{2}(\\.[0-9]{1,4})?$";
+                String regex = "^[A-Z][0-9]{2}(\\.[0-9]{1,4})?$";
                 Pattern pattern = Pattern.compile(regex);
                 Matcher matcher = pattern.matcher(code);
                 if (!matcher.matches()) {
@@ -310,16 +310,36 @@ public class AddDiseaseActivity
 
                     String resultStr = Objects.requireNonNull(response.body()).string();
                     JSONArray result = new JSONArray(resultStr);
-                    boolean isValid = resultStr.startsWith("[1,");
-                    if (isValid && result.length() >= 4) {
-                        JSONArray diseaseInfo = result.getJSONArray(3);
-                        if (diseaseInfo.length() > 0) {
-                            JSONArray diseaseNameInfo = diseaseInfo.getJSONArray(0);
-                            if (diseaseNameInfo.length() >= 2) {
-                                String diseaseName = diseaseNameInfo.getString(1);
-                                handler.post(() -> callback.onResultReceived(isValid, diseaseName));
+
+                    // Check if the response indicates at least one result was found
+                    if (result.length() >= 2 && result.getInt(0) > 0) {
+                        boolean isValid = true;
+                        String diseaseName = "";
+
+                        // Try to extract the disease name from the response
+                        if (result.length() >= 4) {
+                            JSONArray diseaseInfo = result.getJSONArray(3);
+                            if (diseaseInfo.length() > 0) {
+                                JSONArray diseaseNameInfo = diseaseInfo.getJSONArray(0);
+                                if (diseaseNameInfo.length() >= 2) {
+                                    diseaseName = diseaseNameInfo.getString(1);
+                                } else if (diseaseNameInfo.length() >= 1) {
+                                    // Fallback to using the code as the name if no name is provided
+                                    diseaseName = "Disease: " + code;
+                                }
                             }
                         }
+
+                        // If we couldn't extract a name but the code is valid, use a default name
+                        if (diseaseName.isEmpty()) {
+                            diseaseName = "Disease: " + code;
+                        }
+
+                        final String finalDiseaseName = diseaseName;
+                        handler.post(() -> callback.onResultReceived(isValid, finalDiseaseName));
+                    } else {
+                        // No results found, code is invalid
+                        handler.post(() -> callback.onResultReceived(false, ""));
                     }
                 } catch (Exception e) {
                     Log.e("ICD10CodeValidation", "Validation failed", e);

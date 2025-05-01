@@ -7,6 +7,17 @@ public class UserProfile {
     private final float weight;
     private String lastMedicalReport;
 
+    // Additional health metrics for better diagnosis
+    private float bodyFatPercentage;
+    private float waistCircumference;
+    private int restingHeartRate;
+    private int bloodPressureSystolic;
+    private int bloodPressureDiastolic;
+    private float bloodGlucose;
+    private float cholesterolTotal;
+    private float cholesterolHDL;
+    private float cholesterolLDL;
+
     private int averageSteps;
     private int averageSedentaryMinutes;
     private double averageBreathingRate;
@@ -24,6 +35,7 @@ public class UserProfile {
     private int wakeSleep;
     private int averageActiveZoneMinutes;
     private String vo2Max;
+    private int healthScore; // Score out of 100 indicating overall health status
 
     public UserProfile(String name, int age, float height, float weight, String lastMedicalReport) {
         this.name = name;
@@ -31,6 +43,18 @@ public class UserProfile {
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
+
+        // Initialize additional health metrics with default values
+        this.bodyFatPercentage = 0;
+        this.waistCircumference = 0;
+        this.restingHeartRate = 0;
+        this.bloodPressureSystolic = 0;
+        this.bloodPressureDiastolic = 0;
+        this.bloodGlucose = 0;
+        this.cholesterolTotal = 0;
+        this.cholesterolHDL = 0;
+        this.cholesterolLDL = 0;
+        this.healthScore = 0; // Default health score is 0
     }
 
 
@@ -152,5 +176,86 @@ public class UserProfile {
 
     public void setVo2Max(String vo2Max) {
         this.vo2Max = vo2Max;
+    }
+
+    // Getters and setters for additional health metrics
+    public float getBodyFatPercentage() {
+        return bodyFatPercentage;
+    }
+
+    public void setBodyFatPercentage(float bodyFatPercentage) {
+        this.bodyFatPercentage = bodyFatPercentage;
+    }
+
+    public float getWaistCircumference() {
+        return waistCircumference;
+    }
+
+    public void setWaistCircumference(float waistCircumference) {
+        this.waistCircumference = waistCircumference;
+    }
+
+    public int getRestingHeartRate() {
+        return restingHeartRate;
+    }
+
+    public void setRestingHeartRate(int restingHeartRate) {
+        this.restingHeartRate = restingHeartRate;
+    }
+
+    public int getBloodPressureSystolic() {
+        return bloodPressureSystolic;
+    }
+
+    public void setBloodPressureSystolic(int bloodPressureSystolic) {
+        this.bloodPressureSystolic = bloodPressureSystolic;
+    }
+
+    public int getBloodPressureDiastolic() {
+        return bloodPressureDiastolic;
+    }
+
+    public void setBloodPressureDiastolic(int bloodPressureDiastolic) {
+        this.bloodPressureDiastolic = bloodPressureDiastolic;
+    }
+
+    public float getBloodGlucose() {
+        return bloodGlucose;
+    }
+
+    public void setBloodGlucose(float bloodGlucose) {
+        this.bloodGlucose = bloodGlucose;
+    }
+
+    public float getCholesterolTotal() {
+        return cholesterolTotal;
+    }
+
+    public void setCholesterolTotal(float cholesterolTotal) {
+        this.cholesterolTotal = cholesterolTotal;
+    }
+
+    public float getCholesterolHDL() {
+        return cholesterolHDL;
+    }
+
+    public void setCholesterolHDL(float cholesterolHDL) {
+        this.cholesterolHDL = cholesterolHDL;
+    }
+
+    public float getCholesterolLDL() {
+        return cholesterolLDL;
+    }
+
+    public void setCholesterolLDL(float cholesterolLDL) {
+        this.cholesterolLDL = cholesterolLDL;
+    }
+
+    public int getHealthScore() {
+        return healthScore;
+    }
+
+    public void setHealthScore(int healthScore) {
+        this.healthScore = healthScore;
     }
 }

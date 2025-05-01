@@ -39,8 +39,10 @@
 
         <activity android:name=".AddDiseaseActivity"/>
         <activity android:name=".DashboardActivity"/>
-        <activity android:name=".HelpActivity"/>
         <activity android:name=".WeeklyReportActivity"/>
+        <activity android:name=".DoctorDashboardActivity"/>
+        <activity android:name=".DoctorPatientsActivity"/>
+        <activity android:name=".MedicalReportsActivity"/>
 
     </application>
 </manifest>

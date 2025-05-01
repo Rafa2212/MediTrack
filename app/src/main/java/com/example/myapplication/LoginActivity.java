@@ -6,31 +6,43 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
+import android.transition.Transition;
+import android.transition.TransitionInflater;
 import android.widget.Button;
 import android.widget.EditText;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.snackbar.Snackbar;
+import android.app.ActivityOptions;
 
 public class LoginActivity extends AppCompatActivity {
     private EditText editTextUsername, editTextPassword;
     private DatabaseHelper dbHelper;
-    private static final int MIN_PASSWORD_LENGTH = 8;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Enable window content transitions
+        getWindow().requestFeature(android.view.Window.FEATURE_CONTENT_TRANSITIONS);
+        getWindow().requestFeature(android.view.Window.FEATURE_ACTIVITY_TRANSITIONS);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        // Set default transition animations
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+
+        // Apply smooth window transitions
+        setupWindowAnimations();
+
         dbHelper = DatabaseHelper.getInstance(this);
+
+        // Add a doctor user for testing
+        AddDoctorTest.addDoctorForTesting(this);
 
         editTextUsername = findViewById(R.id.editTextUsername);
         editTextPassword = findViewById(R.id.editTextPassword);
         Button buttonLogin = findViewById(R.id.buttonLogin);
-        Button buttonRegister = findViewById(R.id.buttonRegister);
 
         buttonLogin.setOnClickListener(v -> login());
-
-        buttonRegister.setOnClickListener(v -> register());
     }
 
     private void login() {
@@ -53,13 +65,22 @@ public class LoginActivity extends AppCompatActivity {
             onUserLoggedIn(user.getUserId());
 
             if (user.getUserProfile() == null) {
-                startActivity(new Intent(LoginActivity.this, ProfileSetupActivity.class));
-            } else {
-                Intent intent = new Intent(this, DashboardActivity.class);
+                Intent intent = new Intent(LoginActivity.this, ProfileSetupActivity.class);
                 startActivity(intent);
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            } else {
+                Intent intent;
+                if ("doctor".equals(user.getRole())) {
+                    intent = new Intent(this, DoctorDashboardActivity.class);
+                } else {
+                    intent = new Intent(this, DashboardActivity.class);
+                }
+                startActivity(intent);
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
             }
 
             finish();
+            overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
         } else {
             Snackbar
                     .make(findViewById(android.R.id.content), "Invalid username or password",
@@ -68,31 +89,6 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-    private void register() {
-        String username = editTextUsername.getText().toString().trim();
-        String password = editTextPassword.getText().toString().trim();
-
-        if (!isValidPassword(password)) {
-            Snackbar
-                    .make(findViewById(android.R.id.content), "Password must be at least 8 characters long",
-                            Snackbar.LENGTH_SHORT)
-                    .show();
-            return;
-        }
-
-        long newRowId = dbHelper.addUser(username, password);
-
-        if (newRowId != -1) {
-            Snackbar
-                    .make(
-                            findViewById(android.R.id.content), "Registration successful", Snackbar.LENGTH_SHORT)
-                    .show();
-        } else {
-            Snackbar
-                    .make(findViewById(android.R.id.content), "Registration failed", Snackbar.LENGTH_SHORT)
-                    .show();
-        }
-    }
 
     public void onUserLoggedIn(String userId) {
         SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
@@ -122,7 +118,32 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isValidPassword(String password) {
-        return password.length() >= MIN_PASSWORD_LENGTH;
+
+    /**
+     * Set up window transition animations
+     */
+    private void setupWindowAnimations() {
+        Transition enterTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
+        enterTransition.setDuration(300);
+        getWindow().setEnterTransition(enterTransition);
+
+        Transition exitTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
+        exitTransition.setDuration(300);
+        getWindow().setExitTransition(exitTransition);
+
+        Transition sharedElementEnterTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
+        sharedElementEnterTransition.setDuration(300);
+        getWindow().setSharedElementEnterTransition(sharedElementEnterTransition);
+
+        Transition sharedElementExitTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
+        sharedElementExitTransition.setDuration(300);
+        getWindow().setSharedElementExitTransition(sharedElementExitTransition);
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+        // Apply custom exit animation
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 }

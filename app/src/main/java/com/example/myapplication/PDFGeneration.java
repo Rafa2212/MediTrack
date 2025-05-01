@@ -26,7 +26,24 @@ public class PDFGeneration {
     }
 
     public File createPDF(String weeklyReportResponse) {
-        File pdfFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "WeeklyReport.pdf");
+        return createPDF(weeklyReportResponse, null);
+    }
+
+    public File createPDF(String weeklyReportResponse, String patientId) {
+        // Create a unique filename based on patient ID and current date if patientId is provided
+        String filename = "WeeklyReport.pdf";
+        if (patientId != null) {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            filename = "report_" + patientId + "_" + timestamp + ".pdf";
+        }
+
+        // Create reports directory if it doesn't exist
+        File reportsDir = new File(context.getFilesDir(), "reports");
+        if (!reportsDir.exists()) {
+            reportsDir.mkdirs();
+        }
+
+        File pdfFile = new File(reportsDir, filename);
         if (pdfFile.exists()) {
             pdfFile.delete();
         }
