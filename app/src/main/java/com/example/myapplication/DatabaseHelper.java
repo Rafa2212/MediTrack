@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 29; // Incremented to trigger database upgrade
+    private static final int DATABASE_VERSION = 30; // Incremented to trigger database upgrade
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
@@ -17,6 +17,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String TABLE_USER_MEDICATIONS = "user_medications";
     public static final String TABLE_DOCTOR_PATIENTS = "doctor_patients";
     public static final String TABLE_MEDICAL_REPORTS = "medical_reports";
+    public static final String TABLE_NOTIFICATIONS = "notifications";
 
     public static final String COLUMN_USER_ID = "id";
     public static final String COLUMN_USERNAME = "username";
@@ -56,6 +57,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_REPORT_DATE = "report_date";
     public static final String COLUMN_REPORT_CONTENT = "report_content";
     public static final String COLUMN_REPORT_PATH = "report_path";
+
+    // Notifications table columns
+    public static final String COLUMN_NOTIFICATION_ID = "notification_id";
+    public static final String COLUMN_NOTIFICATION_USER_ID = "user_id";
+    public static final String COLUMN_NOTIFICATION_MESSAGE = "message";
+    public static final String COLUMN_NOTIFICATION_DATE = "date";
+    public static final String COLUMN_NOTIFICATION_READ = "is_read";
+    public static final String COLUMN_NOTIFICATION_TYPE = "type";
 
     private static final String CREATE_TABLE_DISEASES = "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES
             + " (" + COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -104,6 +113,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + COLUMN_REPORT_CONTENT + " TEXT, " + COLUMN_REPORT_PATH + " TEXT, "
             + "FOREIGN KEY (" + COLUMN_PATIENT_ID_FK + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
 
+    private static final String CREATE_TABLE_NOTIFICATIONS = "CREATE TABLE IF NOT EXISTS "
+            + TABLE_NOTIFICATIONS + " (" + COLUMN_NOTIFICATION_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+            + COLUMN_NOTIFICATION_USER_ID + " INTEGER, " + COLUMN_NOTIFICATION_MESSAGE + " TEXT, "
+            + COLUMN_NOTIFICATION_DATE + " TEXT, " + COLUMN_NOTIFICATION_READ + " INTEGER, "
+            + COLUMN_NOTIFICATION_TYPE + " TEXT, "
+            + "FOREIGN KEY (" + COLUMN_NOTIFICATION_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
+
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
@@ -124,6 +140,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_SHAREDPREF);
         db.execSQL(CREATE_TABLE_DOCTOR_PATIENTS);
         db.execSQL(CREATE_TABLE_MEDICAL_REPORTS);
+        db.execSQL(CREATE_TABLE_NOTIFICATIONS);
     }
 
     @Override
@@ -137,6 +154,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_SHAREDPREF);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_DOCTOR_PATIENTS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICAL_REPORTS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTIFICATIONS);
 
         onCreate(db);
     }
@@ -523,6 +541,41 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * Gets all doctors for a patient
+     * @param patientId The ID of the patient
+     * @return A list of doctors for the patient
+     */
+    public java.util.List<User> getDoctorsForPatient(String patientId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<User> doctors = new java.util.ArrayList<>();
+
+        String query = "SELECT d." + COLUMN_USER_ID + ", d." + COLUMN_USERNAME + ", d." + COLUMN_USER_ROLE +
+                " FROM " + TABLE_USERS + " d" +
+                " INNER JOIN " + TABLE_DOCTOR_PATIENTS + " dp" +
+                " ON d." + COLUMN_USER_ID + " = dp." + COLUMN_DOCTOR_ID_FK +
+                " WHERE dp." + COLUMN_PATIENT_ID_FK + " = ?";
+
+        Cursor cursor = db.rawQuery(query, new String[] { patientId });
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
+                @SuppressLint("Range")
+                String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
+                UserProfile userProfile = getUserProfile(userId);
+                doctors.add(new User(userId, userProfile, role));
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return doctors;
+    }
+
+    /**
      * Saves a medical report to the database
      * @param patientId The ID of the patient
      * @param reportDate The date of the report
@@ -648,5 +701,177 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         return report;
+    }
+
+    /**
+     * Saves a notification to the database
+     * @param userId The ID of the user this notification is for
+     * @param message The notification message
+     * @param type The type of notification (e.g., "timer_expired", "feedback_submitted")
+     * @return The ID of the newly inserted notification, or -1 if the insertion failed
+     */
+    public long saveNotification(String userId, String message, String type) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        // Get current timestamp for the notification
+        String date = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+
+        values.put(COLUMN_NOTIFICATION_USER_ID, userId);
+        values.put(COLUMN_NOTIFICATION_MESSAGE, message);
+        values.put(COLUMN_NOTIFICATION_DATE, date);
+        values.put(COLUMN_NOTIFICATION_READ, 0); // 0 = false, 1 = true
+        values.put(COLUMN_NOTIFICATION_TYPE, type);
+
+        return db.insert(TABLE_NOTIFICATIONS, null, values);
+    }
+
+    /**
+     * Gets all notifications for a user
+     * @param userId The ID of the user
+     * @return A list of notifications for the user
+     */
+    public java.util.List<Notification> getNotificationsForUser(String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<Notification> notifications = new java.util.ArrayList<>();
+
+        String[] columns = {
+            COLUMN_NOTIFICATION_ID,
+            COLUMN_NOTIFICATION_USER_ID,
+            COLUMN_NOTIFICATION_MESSAGE,
+            COLUMN_NOTIFICATION_DATE,
+            COLUMN_NOTIFICATION_READ,
+            COLUMN_NOTIFICATION_TYPE
+        };
+
+        String selection = COLUMN_NOTIFICATION_USER_ID + "=?";
+        String[] selectionArgs = { userId };
+        String orderBy = COLUMN_NOTIFICATION_DATE + " DESC";
+
+        Cursor cursor = db.query(
+            TABLE_NOTIFICATIONS,
+            columns,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            orderBy
+        );
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String id = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_ID));
+                @SuppressLint("Range")
+                String message = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_MESSAGE));
+                @SuppressLint("Range")
+                String date = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_DATE));
+                @SuppressLint("Range")
+                boolean isRead = cursor.getInt(cursor.getColumnIndex(COLUMN_NOTIFICATION_READ)) == 1;
+                @SuppressLint("Range")
+                String type = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_TYPE));
+
+                Notification notification = new Notification(id, userId, message, date, isRead, type);
+                notifications.add(notification);
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return notifications;
+    }
+
+    /**
+     * Gets unread notifications for a user
+     * @param userId The ID of the user
+     * @return A list of unread notifications for the user
+     */
+    public java.util.List<Notification> getUnreadNotificationsForUser(String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        java.util.List<Notification> notifications = new java.util.ArrayList<>();
+
+        String[] columns = {
+            COLUMN_NOTIFICATION_ID,
+            COLUMN_NOTIFICATION_USER_ID,
+            COLUMN_NOTIFICATION_MESSAGE,
+            COLUMN_NOTIFICATION_DATE,
+            COLUMN_NOTIFICATION_READ,
+            COLUMN_NOTIFICATION_TYPE
+        };
+
+        String selection = COLUMN_NOTIFICATION_USER_ID + "=? AND " + COLUMN_NOTIFICATION_READ + "=?";
+        String[] selectionArgs = { userId, "0" };
+        String orderBy = COLUMN_NOTIFICATION_DATE + " DESC";
+
+        Cursor cursor = db.query(
+            TABLE_NOTIFICATIONS,
+            columns,
+            selection,
+            selectionArgs,
+            null,
+            null,
+            orderBy
+        );
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                @SuppressLint("Range")
+                String id = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_ID));
+                @SuppressLint("Range")
+                String message = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_MESSAGE));
+                @SuppressLint("Range")
+                String date = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_DATE));
+                @SuppressLint("Range")
+                boolean isRead = cursor.getInt(cursor.getColumnIndex(COLUMN_NOTIFICATION_READ)) == 1;
+                @SuppressLint("Range")
+                String type = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_TYPE));
+
+                Notification notification = new Notification(id, userId, message, date, isRead, type);
+                notifications.add(notification);
+            } while (cursor.moveToNext());
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return notifications;
+    }
+
+    /**
+     * Marks a notification as read
+     * @param notificationId The ID of the notification
+     * @return true if the notification was marked as read, false otherwise
+     */
+    public boolean markNotificationAsRead(String notificationId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        values.put(COLUMN_NOTIFICATION_READ, 1); // 1 = true
+
+        String whereClause = COLUMN_NOTIFICATION_ID + "=?";
+        String[] whereArgs = { notificationId };
+
+        int rowsAffected = db.update(TABLE_NOTIFICATIONS, values, whereClause, whereArgs);
+
+        return rowsAffected > 0;
+    }
+
+    /**
+     * Deletes a notification
+     * @param notificationId The ID of the notification
+     * @return true if the notification was deleted, false otherwise
+     */
+    public boolean deleteNotification(String notificationId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        String whereClause = COLUMN_NOTIFICATION_ID + "=?";
+        String[] whereArgs = { notificationId };
+
+        int rowsAffected = db.delete(TABLE_NOTIFICATIONS, whereClause, whereArgs);
+
+        return rowsAffected > 0;
     }
 }

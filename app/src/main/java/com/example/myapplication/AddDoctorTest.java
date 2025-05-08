@@ -54,6 +54,35 @@ public class AddDoctorTest {
                 assignPatientsToDoctor1(context, doctorId1);
             }
 
+            // Check if medic doctor already exists
+            User medicDoctor = dbHelper.checkUser("medic", "password");
+            String medicDoctorId = "";
+
+            if (medicDoctor == null) {
+                // Add medic doctor if it doesn't exist
+                long newMedicDoctorId = dbHelper.addDoctor("medic", "password");
+                if (newMedicDoctorId != -1) {
+                    medicDoctorId = String.valueOf(newMedicDoctorId);
+                    Log.d(TAG, "Medic doctor added successfully with ID: " + medicDoctorId);
+
+                    // Create a simple profile for the doctor
+                    UserProfile medicDoctorProfile = new UserProfile("Dr. Medic", 40, 175, 70, "General Practitioner");
+                    dbHelper.insertOrUpdateProfile(medicDoctorId, medicDoctorProfile);
+                    Log.d(TAG, "Medic doctor profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add medic doctor");
+                }
+            } else {
+                medicDoctorId = medicDoctor.getUserId();
+                Log.d(TAG, "Medic doctor already exists with ID: " + medicDoctorId);
+            }
+
+            // Always assign rafael to medic doctor, whether it was just created or already existed
+            if (!medicDoctorId.isEmpty()) {
+                // Assign rafael to medic doctor
+                assignRafaelToMedicDoctor(context, medicDoctorId);
+            }
+
             // Check if doctor2 already exists
             User doctor2 = dbHelper.checkUser("doctor2", "password");
             String doctorId2 = "";
@@ -112,6 +141,35 @@ public class AddDoctorTest {
                 assignPatientsToDoctor3(context, doctorId3);
             }
 
+            // Check if doctor4 already exists
+            User doctor4 = dbHelper.checkUser("doctor4", "password");
+            String doctorId4 = "";
+
+            if (doctor4 == null) {
+                // Add fourth doctor if it doesn't exist
+                long newDoctorId4 = dbHelper.addDoctor("doctor4", "password");
+                if (newDoctorId4 != -1) {
+                    doctorId4 = String.valueOf(newDoctorId4);
+                    Log.d(TAG, "Doctor 4 added successfully with ID: " + doctorId4);
+
+                    // Create a simple profile for the doctor
+                    UserProfile doctorProfile4 = new UserProfile("Dr. Brown", 42, 178, 72, "Endocrinologist");
+                    dbHelper.insertOrUpdateProfile(doctorId4, doctorProfile4);
+                    Log.d(TAG, "Doctor 4 profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add doctor 4");
+                }
+            } else {
+                doctorId4 = doctor4.getUserId();
+                Log.d(TAG, "Doctor 4 already exists with ID: " + doctorId4);
+            }
+
+            // Always assign patients to doctor4, whether it was just created or already existed
+            if (!doctorId4.isEmpty()) {
+                // Assign patient8, patient9, patient10, and patient11 to doctor4
+                assignPatientsToDoctor4(context, doctorId4);
+            }
+
             return true;
         } catch (Exception e) {
             Log.e(TAG, "Error adding doctors: " + e.getMessage());
@@ -126,6 +184,19 @@ public class AddDoctorTest {
     private static void createAllPatientsIfNeeded(Context context) {
         try {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Check if rafael already exists
+            User existingRafael = dbHelper.checkUser("rafael", "password");
+            long rafaelId = -1;
+            if (existingRafael != null) {
+                Log.d(TAG, "Rafael already exists");
+                rafaelId = Long.parseLong(existingRafael.getUserId());
+            } else {
+                // Add rafael only if it doesn't exist
+                rafaelId = dbHelper.addTestUser("rafael", "password", "patient");
+                Log.d(TAG, "Rafael added with ID: " + rafaelId);
+                // Note: We intentionally do not create a profile for rafael as per requirements
+            }
 
             // Check if patient1 already exists
             User existingPatient1 = dbHelper.checkUser("patient1", "password");
@@ -357,6 +428,138 @@ public class AddDoctorTest {
                 dbHelper.insertOrUpdateProfile(String.valueOf(patient7Id), patient7Profile);
                 Log.d(TAG, "Patient 7 profile updated");
             }
+
+            // Check if patient8 already exists
+            User existingPatient8 = dbHelper.checkUser("patient8", "password");
+            long patient8Id = -1;
+            if (existingPatient8 != null) {
+                Log.d(TAG, "Patient 8 already exists");
+                patient8Id = Long.parseLong(existingPatient8.getUserId());
+            } else {
+                // Add patient 8 only if it doesn't exist
+                patient8Id = dbHelper.addTestUser("patient8", "password", "patient");
+                Log.d(TAG, "Patient 8 added with ID: " + patient8Id);
+            }
+            if (patient8Id != -1) {
+                UserProfile patient8Profile = new UserProfile("Emma Wilson", 33, 167, 62, "Hypothyroidism");
+
+                // Set additional health metrics
+                patient8Profile.setBodyFatPercentage(23.0f);
+                patient8Profile.setRestingHeartRate(70);
+                patient8Profile.setBloodPressureSystolic(118);
+                patient8Profile.setBloodPressureDiastolic(78);
+                patient8Profile.setBloodGlucose(92.0f);
+                patient8Profile.setCholesterolTotal(185.0f);
+                patient8Profile.setCholesterolHDL(58.0f);
+                patient8Profile.setCholesterolLDL(115.0f);
+                patient8Profile.setHealthScore(78);
+
+                // Set last medical report date to more than a week ago to reset the timer
+                LocalDateTime pastDate = LocalDateTime.now().minusWeeks(2);
+                patient8Profile.setLastMedicalReport(pastDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+
+                dbHelper.insertOrUpdateProfile(String.valueOf(patient8Id), patient8Profile);
+                Log.d(TAG, "Patient 8 profile updated");
+            }
+
+            // Check if patient9 already exists
+            User existingPatient9 = dbHelper.checkUser("patient9", "password");
+            long patient9Id = -1;
+            if (existingPatient9 != null) {
+                Log.d(TAG, "Patient 9 already exists");
+                patient9Id = Long.parseLong(existingPatient9.getUserId());
+            } else {
+                // Add patient 9 only if it doesn't exist
+                patient9Id = dbHelper.addTestUser("patient9", "password", "patient");
+                Log.d(TAG, "Patient 9 added with ID: " + patient9Id);
+            }
+            if (patient9Id != -1) {
+                UserProfile patient9Profile = new UserProfile("James Taylor", 47, 182, 88, "Hypertension");
+
+                // Set additional health metrics
+                patient9Profile.setBodyFatPercentage(24.5f);
+                patient9Profile.setRestingHeartRate(74);
+                patient9Profile.setBloodPressureSystolic(145);
+                patient9Profile.setBloodPressureDiastolic(92);
+                patient9Profile.setBloodGlucose(98.0f);
+                patient9Profile.setCholesterolTotal(195.0f);
+                patient9Profile.setCholesterolHDL(52.0f);
+                patient9Profile.setCholesterolLDL(125.0f);
+                patient9Profile.setHealthScore(68);
+
+                // Set last medical report date to more than a week ago to reset the timer
+                LocalDateTime pastDate = LocalDateTime.now().minusWeeks(2);
+                patient9Profile.setLastMedicalReport(pastDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+
+                dbHelper.insertOrUpdateProfile(String.valueOf(patient9Id), patient9Profile);
+                Log.d(TAG, "Patient 9 profile updated");
+            }
+
+            // Check if patient10 already exists
+            User existingPatient10 = dbHelper.checkUser("patient10", "password");
+            long patient10Id = -1;
+            if (existingPatient10 != null) {
+                Log.d(TAG, "Patient 10 already exists");
+                patient10Id = Long.parseLong(existingPatient10.getUserId());
+            } else {
+                // Add patient 10 only if it doesn't exist
+                patient10Id = dbHelper.addTestUser("patient10", "password", "patient");
+                Log.d(TAG, "Patient 10 added with ID: " + patient10Id);
+            }
+            if (patient10Id != -1) {
+                UserProfile patient10Profile = new UserProfile("Olivia Martinez", 29, 163, 57, "Anxiety");
+
+                // Set additional health metrics
+                patient10Profile.setBodyFatPercentage(20.5f);
+                patient10Profile.setRestingHeartRate(76);
+                patient10Profile.setBloodPressureSystolic(122);
+                patient10Profile.setBloodPressureDiastolic(80);
+                patient10Profile.setBloodGlucose(88.0f);
+                patient10Profile.setCholesterolTotal(175.0f);
+                patient10Profile.setCholesterolHDL(62.0f);
+                patient10Profile.setCholesterolLDL(98.0f);
+                patient10Profile.setHealthScore(82);
+
+                // Set last medical report date to more than a week ago to reset the timer
+                LocalDateTime pastDate = LocalDateTime.now().minusWeeks(2);
+                patient10Profile.setLastMedicalReport(pastDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+
+                dbHelper.insertOrUpdateProfile(String.valueOf(patient10Id), patient10Profile);
+                Log.d(TAG, "Patient 10 profile updated");
+            }
+
+            // Check if patient11 already exists
+            User existingPatient11 = dbHelper.checkUser("patient11", "password");
+            long patient11Id = -1;
+            if (existingPatient11 != null) {
+                Log.d(TAG, "Patient 11 already exists");
+                patient11Id = Long.parseLong(existingPatient11.getUserId());
+            } else {
+                // Add patient 11 only if it doesn't exist
+                patient11Id = dbHelper.addTestUser("patient11", "password", "patient");
+                Log.d(TAG, "Patient 11 added with ID: " + patient11Id);
+            }
+            if (patient11Id != -1) {
+                UserProfile patient11Profile = new UserProfile("Noah Anderson", 38, 176, 78, "GERD");
+
+                // Set additional health metrics
+                patient11Profile.setBodyFatPercentage(22.0f);
+                patient11Profile.setRestingHeartRate(68);
+                patient11Profile.setBloodPressureSystolic(125);
+                patient11Profile.setBloodPressureDiastolic(82);
+                patient11Profile.setBloodGlucose(94.0f);
+                patient11Profile.setCholesterolTotal(188.0f);
+                patient11Profile.setCholesterolHDL(56.0f);
+                patient11Profile.setCholesterolLDL(118.0f);
+                patient11Profile.setHealthScore(76);
+
+                // Set last medical report date to more than a week ago to reset the timer
+                LocalDateTime pastDate = LocalDateTime.now().minusWeeks(2);
+                patient11Profile.setLastMedicalReport(pastDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+
+                dbHelper.insertOrUpdateProfile(String.valueOf(patient11Id), patient11Profile);
+                Log.d(TAG, "Patient 11 profile updated");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error creating patients: " + e.getMessage());
         }
@@ -447,6 +650,67 @@ public class AddDoctorTest {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error assigning patients to doctor3: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Assigns patient8, patient9, patient10, and patient11 to doctor4.
+     * @param context The context to use for database access
+     * @param doctorId The ID of doctor4
+     */
+    private static void assignPatientsToDoctor4(Context context, String doctorId) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Get patient8
+            User patient8 = dbHelper.checkUser("patient8", "password");
+            if (patient8 != null) {
+                dbHelper.assignPatientToDoctor(doctorId, patient8.getUserId());
+                Log.d(TAG, "Patient 8 assigned to doctor4");
+            }
+
+            // Get patient9
+            User patient9 = dbHelper.checkUser("patient9", "password");
+            if (patient9 != null) {
+                dbHelper.assignPatientToDoctor(doctorId, patient9.getUserId());
+                Log.d(TAG, "Patient 9 assigned to doctor4");
+            }
+
+            // Get patient10
+            User patient10 = dbHelper.checkUser("patient10", "password");
+            if (patient10 != null) {
+                dbHelper.assignPatientToDoctor(doctorId, patient10.getUserId());
+                Log.d(TAG, "Patient 10 assigned to doctor4");
+            }
+
+            // Get patient11
+            User patient11 = dbHelper.checkUser("patient11", "password");
+            if (patient11 != null) {
+                dbHelper.assignPatientToDoctor(doctorId, patient11.getUserId());
+                Log.d(TAG, "Patient 11 assigned to doctor4");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error assigning patients to doctor4: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Assigns rafael to medic doctor.
+     * @param context The context to use for database access
+     * @param doctorId The ID of medic doctor
+     */
+    private static void assignRafaelToMedicDoctor(Context context, String doctorId) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Get rafael
+            User rafael = dbHelper.checkUser("rafael", "password");
+            if (rafael != null) {
+                dbHelper.assignPatientToDoctor(doctorId, rafael.getUserId());
+                Log.d(TAG, "Rafael assigned to medic doctor");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error assigning rafael to medic doctor: " + e.getMessage());
         }
     }
 

@@ -7,4 +7,6 @@
     <color name="login_edittext_background_tint">#E0E0E0</color>
     <color name="transparent">#00000000</color>
     <color name="logoColorPurple">#9C27B0</color>
+    <color name="lightPurple">#9575CD</color>
+    <color name="green">#4CAF50</color>
 </resources>

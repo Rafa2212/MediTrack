@@ -40,14 +40,16 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
             holder.patientName.setText(profile.getName());
             holder.patientAge.setText("Age: " + profile.getAge());
 
-            // Format the date in English style
-            String lastReportDate = profile.getLastMedicalReport();
-            if (lastReportDate != null && !lastReportDate.isEmpty()) {
+            // Get the latest medical report date when the patient actually logged data
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+            MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(patient.getUserId());
+            if (latestReport != null && latestReport.getReportDate() != null && !latestReport.getReportDate().isEmpty()) {
+                String lastReportDate = latestReport.getReportDate();
                 String formattedDate = "";
                 try {
                     java.time.format.DateTimeFormatter inputFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
                     java.time.LocalDateTime dateTime = java.time.LocalDateTime.parse(lastReportDate, inputFormatter);
-                    java.time.format.DateTimeFormatter outputFormatter = java.time.format.DateTimeFormatter.ofPattern("dd MMMM yyyy", java.util.Locale.ENGLISH);
+                    java.time.format.DateTimeFormatter outputFormatter = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.ENGLISH);
                     formattedDate = dateTime.format(outputFormatter);
                     holder.patientMedicalReport.setText("Last Medical Report: " + formattedDate);
                 } catch (Exception e) {

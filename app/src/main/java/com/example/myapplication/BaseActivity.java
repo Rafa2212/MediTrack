@@ -131,7 +131,12 @@ public abstract class BaseActivity extends AppCompatActivity {
             }
             else if (itemId == R.id.menu_logout) {
                 SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                String lastUsername = sharedPreferences.getString("last_username", "");
                 sharedPreferences.edit().clear().apply();
+                // Restore the last username after clearing
+                if (!lastUsername.isEmpty()) {
+                    sharedPreferences.edit().putString("last_username", lastUsername).apply();
+                }
                 intent = new Intent(this, LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             }
@@ -160,7 +165,12 @@ public abstract class BaseActivity extends AppCompatActivity {
                 intent = new Intent(this, DoctorPatientsActivity.class);
             } else if (itemId == R.id.menu_logout) {
                 SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                String lastUsername = sharedPreferences.getString("last_username", "");
                 sharedPreferences.edit().clear().apply();
+                // Restore the last username after clearing
+                if (!lastUsername.isEmpty()) {
+                    sharedPreferences.edit().putString("last_username", lastUsername).apply();
+                }
                 intent = new Intent(this, LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             }

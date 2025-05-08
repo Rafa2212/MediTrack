@@ -25,6 +25,39 @@ public class LoginActivity extends AppCompatActivity {
         getWindow().requestFeature(android.view.Window.FEATURE_ACTIVITY_TRANSITIONS);
 
         super.onCreate(savedInstanceState);
+
+        // Check if user is already logged in
+        SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String userId = preferences.getString("userId", "");
+
+        if (!userId.isEmpty()) {
+            // User is already logged in, get user details
+            dbHelper = DatabaseHelper.getInstance(this);
+            User user = dbHelper.getUser(userId);
+
+            if (user != null) {
+                // Valid user found, redirect to appropriate dashboard
+                Intent intent;
+
+                if (user.getUserProfile() == null) {
+                    // User needs to set up profile
+                    intent = new Intent(LoginActivity.this, ProfileSetupActivity.class);
+                } else if ("doctor".equals(user.getRole())) {
+                    // Doctor dashboard
+                    intent = new Intent(this, DoctorDashboardActivity.class);
+                } else {
+                    // Patient dashboard
+                    intent = new Intent(this, DashboardActivity.class);
+                }
+
+                startActivity(intent);
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                finish();
+                return;
+            }
+        }
+
+        // If no valid session or user not found, show login screen
         setContentView(R.layout.activity_login);
 
         // Set default transition animations
@@ -41,6 +74,12 @@ public class LoginActivity extends AppCompatActivity {
         editTextUsername = findViewById(R.id.editTextUsername);
         editTextPassword = findViewById(R.id.editTextPassword);
         Button buttonLogin = findViewById(R.id.buttonLogin);
+
+        // Retrieve and display the last username
+        String lastUsername = preferences.getString("last_username", "");
+        if (!lastUsername.isEmpty()) {
+            editTextUsername.setText(lastUsername);
+        }
 
         buttonLogin.setOnClickListener(v -> login());
     }
@@ -91,9 +130,13 @@ public class LoginActivity extends AppCompatActivity {
 
 
     public void onUserLoggedIn(String userId) {
+        // Save the username to SharedPreferences
+        String username = editTextUsername.getText().toString().trim();
+
         SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
         editor.clear().apply();
         editor.putString("userId", userId);
+        editor.putString("last_username", username);
         editor.apply();
 
         SQLiteDatabase db = dbHelper.getReadableDatabase();
