@@ -14,13 +14,31 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-        <TextView
-                android:id="@+id/patient_name"
+        <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:text="Patient Name" />
+                android:orientation="horizontal">
+
+            <TextView
+                    android:id="@+id/patient_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:text="Patient Name" />
+
+            <Button
+                    android:id="@+id/btn_deassign"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Deassign"
+                    android:textSize="12sp"
+                    android:minHeight="36dp"
+                    android:minWidth="80dp"
+                    android:backgroundTint="@color/logoColor"
+                    android:textColor="@color/white" />
+        </LinearLayout>
 
         <TextView
                 android:id="@+id/patient_age"

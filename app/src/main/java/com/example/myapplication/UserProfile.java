@@ -1,11 +1,13 @@
 package com.example.myapplication;
 
 public class UserProfile {
+    private String cnp;
     private final String name;
     private final int age;
     private final float height;
     private final float weight;
     private String lastMedicalReport;
+    private String specialty; // Doctor specialty (e.g., cardiologist, dermatologist)
 
     // Additional health metrics for better diagnosis
     private float bodyFatPercentage;
@@ -36,13 +38,16 @@ public class UserProfile {
     private int averageActiveZoneMinutes;
     private String vo2Max;
     private int healthScore; // Score out of 100 indicating overall health status
+    private String bodyType; // Ectomorph, Mesomorph, Endomorph, or hybrid types
 
     public UserProfile(String name, int age, float height, float weight, String lastMedicalReport) {
+        this.cnp = "";
         this.name = name;
         this.age = age;
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
+        this.specialty = ""; // Default specialty is empty string
 
         // Initialize additional health metrics with default values
         this.bodyFatPercentage = 0;
@@ -55,6 +60,30 @@ public class UserProfile {
         this.cholesterolHDL = 0;
         this.cholesterolLDL = 0;
         this.healthScore = 0; // Default health score is 0
+        this.bodyType = ""; // Default body type is empty string
+    }
+
+    public UserProfile(String cnp, String name, int age, float height, float weight, String lastMedicalReport) {
+        this.cnp = cnp;
+        this.name = name;
+        this.age = age;
+        this.height = height;
+        this.weight = weight;
+        this.lastMedicalReport = lastMedicalReport;
+        this.specialty = ""; // Default specialty is empty string
+
+        // Initialize additional health metrics with default values
+        this.bodyFatPercentage = 0;
+        this.waistCircumference = 0;
+        this.restingHeartRate = 0;
+        this.bloodPressureSystolic = 0;
+        this.bloodPressureDiastolic = 0;
+        this.bloodGlucose = 0;
+        this.cholesterolTotal = 0;
+        this.cholesterolHDL = 0;
+        this.cholesterolLDL = 0;
+        this.healthScore = 0; // Default health score is 0
+        this.bodyType = ""; // Default body type is empty string
     }
 
 
@@ -257,5 +286,37 @@ public class UserProfile {
 
     public void setHealthScore(int healthScore) {
         this.healthScore = healthScore;
+    }
+
+    public String getCnp() {
+        return cnp;
+    }
+
+    public void setCnp(String cnp) {
+        this.cnp = cnp;
+    }
+
+    public String getBodyType() {
+        return bodyType;
+    }
+
+    public void setBodyType(String bodyType) {
+        this.bodyType = bodyType;
+    }
+
+    /**
+     * Gets the doctor's specialty
+     * @return The doctor's specialty
+     */
+    public String getSpecialty() {
+        return specialty;
+    }
+
+    /**
+     * Sets the doctor's specialty
+     * @param specialty The doctor's specialty
+     */
+    public void setSpecialty(String specialty) {
+        this.specialty = specialty;
     }
 }

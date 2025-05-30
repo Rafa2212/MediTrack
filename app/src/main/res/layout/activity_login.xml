@@ -54,6 +54,7 @@
                 android:minWidth="200dp"
                 android:text="@string/login"/>
 
+        <!-- "Create Doctor Account" button removed as per requirements -->
 
     </LinearLayout>
 

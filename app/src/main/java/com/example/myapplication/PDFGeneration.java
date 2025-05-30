@@ -56,6 +56,9 @@ public class PDFGeneration {
             document.setMargins(36, 36, 36, 36); // 0.5 inch margins
 
             // Parse the response to identify sections
+            if (weeklyReportResponse == null) {
+                weeklyReportResponse = "Error: No content available.";
+            }
             String[] sections = weeklyReportResponse.split("(?=# |## |### )");
 
             // Variables to track sections
@@ -66,7 +69,7 @@ public class PDFGeneration {
 
             // Process each section
             for (String section : sections) {
-                if (section.trim().isEmpty()) continue;
+                if (section == null || section.trim().isEmpty()) continue;
 
                 // Identify section type
                 if (section.contains("BMI") || section.contains("Body Mass Index")) {
@@ -86,6 +89,7 @@ public class PDFGeneration {
                 String[] lines = section.split("\n");
                 for (int i = 0; i < lines.length; i++) {
                     String line = lines[i];
+                    if (line == null) continue;
 
                     if (line.startsWith("# ")) {
                         // Main title - large, centered, with accent color
@@ -123,6 +127,8 @@ public class PDFGeneration {
                         Paragraph paragraph = new Paragraph().setFontSize(12);
                         String[] parts = line.split("\\*\\*");
                         for (int j = 0; j < parts.length; j++) {
+                            if (parts[j] == null) continue;
+
                             if (j % 2 == 0) {
                                 paragraph.add(new Text(parts[j]));
                             } else {
@@ -135,17 +141,19 @@ public class PDFGeneration {
                     } else if (line.startsWith("- ") || line.startsWith("* ")) {
                         // Bullet points
                         String bulletText = line.substring(2);
-                        Paragraph para = new Paragraph()
-                                .setFontSize(12)
-                                .setMarginLeft(20f)
-                                .setFirstLineIndent(-10f);
+                        if (bulletText != null) {
+                            Paragraph para = new Paragraph()
+                                    .setFontSize(12)
+                                    .setMarginLeft(20f)
+                                    .setFirstLineIndent(-10f);
 
-                        Text bullet = new Text("• ")
-                                .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
-                        para.add(bullet).add(bulletText);
+                            Text bullet = new Text("• ")
+                                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
+                            para.add(bullet).add(bulletText);
 
-                        document.add(para);
-                    } else if (!line.trim().isEmpty()) {
+                            document.add(para);
+                        }
+                    } else if (line != null && !line.trim().isEmpty()) {
                         // Regular paragraph text
                         Paragraph para = new Paragraph(line)
                                 .setFontSize(12)
@@ -172,20 +180,51 @@ public class PDFGeneration {
                 addFeedbackSection(document);
             }
 
-            // Add footer with page numbers
-            int numberOfPages = pdf.getNumberOfPages();
-            for (int i = 1; i <= numberOfPages; i++) {
-                // Create footer text
-                Text footerText = new Text(String.format("Page %d of %d", i, numberOfPages))
-                        .setFontSize(10)
-                        .setFontColor(new DeviceRgb(128, 128, 128));
+            // Add page numbers using an event handler instead of trying to add them after pages are created
+            // This avoids the "Cannot draw elements on already flushed pages" exception
+            try {
+                int numberOfPages = pdf.getNumberOfPages();
+                for (int i = 1; i <= numberOfPages; i++) {
+                    // Get the page
+                    com.itextpdf.kernel.pdf.PdfPage page = pdf.getPage(i);
+                    if (page == null) {
+                        continue; // Skip this page if it's null
+                    }
 
-                // Add footer to each page
-                Paragraph footer = new Paragraph(footerText)
-                        .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
-                        .setFixedPosition(i, 36, 20, pdf.getDefaultPageSize().getWidth() - 72);
+                    try {
+                        // Create a new content stream for the page
+                        com.itextpdf.kernel.pdf.canvas.PdfCanvas canvas = new com.itextpdf.kernel.pdf.canvas.PdfCanvas(page);
 
-                document.add(footer);
+                        // Get page size with null check
+                        com.itextpdf.kernel.geom.Rectangle pageSize = page.getPageSize();
+                        if (pageSize == null) {
+                            continue; // Skip this page if its size is null
+                        }
+
+                        // Create a canvas for writing content
+                        com.itextpdf.layout.Canvas layoutCanvas = new com.itextpdf.layout.Canvas(canvas, pdf, pageSize);
+
+                        // Create footer text
+                        Text footerText = new Text(String.format("Page %d of %d", i, numberOfPages))
+                                .setFontSize(10)
+                                .setFontColor(new DeviceRgb(128, 128, 128));
+
+                        // Create footer paragraph
+                        Paragraph footer = new Paragraph(footerText)
+                                .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER);
+
+                        // Add footer to the page using the canvas
+                        layoutCanvas.showTextAligned(footer, pageSize.getWidth() / 2, 20, i, 
+                                com.itextpdf.layout.property.TextAlignment.CENTER, 
+                                com.itextpdf.layout.property.VerticalAlignment.BOTTOM, 0);
+                    } catch (Exception e) {
+                        // Log the error but continue processing other pages
+                        e.printStackTrace();
+                    }
+                }
+            } catch (Exception e) {
+                // Log the error but don't let it crash the PDF generation
+                e.printStackTrace();
             }
 
             document.close();

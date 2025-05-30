@@ -65,6 +65,21 @@
             app:layout_constraintTop_toBottomOf="@+id/doctor_info_widget"
             app:layout_constraintStart_toStartOf="parent" />
 
+    <TextView
+            android:id="@+id/no_patients_message"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="You don't have any assigned patients yet."
+            android:textSize="16sp"
+            android:textAlignment="center"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/patients_title"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
     <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/patients_recyclerview"
             android:layout_width="match_parent"
@@ -77,6 +92,16 @@
             app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab_add_patient"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:contentDescription="Add new patient"
+            android:src="@android:drawable/ic_input_add"
+            app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
+            app:layout_constraintEnd_toEndOf="parent" />
 
     <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"

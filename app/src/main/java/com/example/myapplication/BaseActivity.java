@@ -11,8 +11,21 @@ import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import java.util.List;
 
 public abstract class BaseActivity extends AppCompatActivity {
+
+    /**
+     * Shows the notification dialog
+     */
+    protected void showNotificationDialog() {
+        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "");
+        if (!userId.isEmpty()) {
+            NotificationDialog dialog = new NotificationDialog(this, userId);
+            dialog.show();
+        }
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -113,6 +126,19 @@ public abstract class BaseActivity extends AppCompatActivity {
         overridePendingTransition(R.anim.zoom_in, R.anim.zoom_out);
     }
     protected void setupNavigation(BottomNavigationView bottomNav, @IdRes int selectedItemId) {
+        // Check if user is a patient or doctor
+        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "");
+        DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
+        boolean isDoctor = dbHelper.isDoctor(userId);
+
+        // Set the appropriate menu based on user role
+        if (!isDoctor) {
+            // For patients, use the menu without the profile option
+            bottomNav.getMenu().clear();
+            bottomNav.inflateMenu(R.menu.bottom_navigation_menu_patient);
+        }
+
         bottomNav.setBackgroundColor(Color.WHITE);
         bottomNav.setSelectedItemId(selectedItemId);
         bottomNav.setOnItemSelectedListener(item -> {
@@ -124,18 +150,18 @@ public abstract class BaseActivity extends AppCompatActivity {
 
             if (itemId == R.id.menu_dashboard) {
                 intent = new Intent(this, DashboardActivity.class);
-            } else if (itemId == R.id.menu_profile) {
+            } else if (itemId == R.id.menu_profile && isDoctor) {
+                // Only doctors should be able to access ProfileSetupActivity
                 intent = new Intent(this, ProfileSetupActivity.class);
             } else if (itemId == R.id.menu_wkly_report) {
                 intent = new Intent(this, WeeklyReportActivity.class);
-            }
-            else if (itemId == R.id.menu_logout) {
-                SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-                String lastUsername = sharedPreferences.getString("last_username", "");
-                sharedPreferences.edit().clear().apply();
+            } else if (itemId == R.id.menu_logout) {
+                SharedPreferences prefs = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                String lastUsername = prefs.getString("last_username", "");
+                prefs.edit().clear().apply();
                 // Restore the last username after clearing
                 if (!lastUsername.isEmpty()) {
-                    sharedPreferences.edit().putString("last_username", lastUsername).apply();
+                    prefs.edit().putString("last_username", lastUsername).apply();
                 }
                 intent = new Intent(this, LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

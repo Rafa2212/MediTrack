@@ -24,6 +24,11 @@ public class AddDoctorTest {
             // First, create all patients if they don't exist
             createAllPatientsIfNeeded(context);
 
+            // Add the three specified doctors: cardio, pneumo, nutri
+            addSpecializedDoctors(context);
+
+            dbHelper.assignPatientToDoctor("14", "19");
+
             // Check if doctor1 already exists
             User doctor1 = dbHelper.checkUser("doctor", "password");
             String doctorId1 = "";
@@ -37,6 +42,7 @@ public class AddDoctorTest {
 
                     // Create a simple profile for the doctor
                     UserProfile doctorProfile1 = new UserProfile("Dr. Smith", 45, 180, 75, "Medical doctor");
+                    doctorProfile1.setSpecialty("General Practitioner");
                     dbHelper.insertOrUpdateProfile(doctorId1, doctorProfile1);
                     Log.d(TAG, "Doctor 1 profile added successfully");
                 } else {
@@ -66,7 +72,8 @@ public class AddDoctorTest {
                     Log.d(TAG, "Medic doctor added successfully with ID: " + medicDoctorId);
 
                     // Create a simple profile for the doctor
-                    UserProfile medicDoctorProfile = new UserProfile("Dr. Medic", 40, 175, 70, "General Practitioner");
+                    UserProfile medicDoctorProfile = new UserProfile("Medic", 40, 175, 70, "General Practitioner");
+                    medicDoctorProfile.setSpecialty("General Practitioner");
                     dbHelper.insertOrUpdateProfile(medicDoctorId, medicDoctorProfile);
                     Log.d(TAG, "Medic doctor profile added successfully");
                 } else {
@@ -75,13 +82,36 @@ public class AddDoctorTest {
             } else {
                 medicDoctorId = medicDoctor.getUserId();
                 Log.d(TAG, "Medic doctor already exists with ID: " + medicDoctorId);
+
+                // Update the medic doctor's profile to ensure the name is "Medic"
+                UserProfile medicDoctorProfile = new UserProfile("Medic", 40, 175, 70, "General Practitioner");
+                medicDoctorProfile.setSpecialty("General Practitioner");
+                dbHelper.insertOrUpdateProfile(medicDoctorId, medicDoctorProfile);
+                Log.d(TAG, "Medic doctor profile updated to ensure name is 'Medic'");
             }
 
-            // Always assign rafael to medic doctor, whether it was just created or already existed
+            // Remove any existing patients from the medic doctor
             if (!medicDoctorId.isEmpty()) {
-                // Assign rafael to medic doctor
-                assignRafaelToMedicDoctor(context, medicDoctorId);
+                // Get all patients currently assigned to the medic doctor
+                java.util.List<User> medicPatients = dbHelper.getPatientsForDoctor(medicDoctorId);
+
+                // Deassign each patient from the medic doctor
+                for (User patient : medicPatients) {
+                    boolean success = dbHelper.deassignPatientFromDoctor(medicDoctorId, patient.getUserId());
+                    if (success) {
+                        Log.d(TAG, "Patient " + patient.getUserId() + " deassigned from medic doctor");
+                    } else {
+                        Log.e(TAG, "Failed to deassign patient " + patient.getUserId() + " from medic doctor");
+                    }
+                }
+
+                Log.d(TAG, "All patients removed from medic doctor");
             }
+
+            // No patients should be assigned to medic doctor
+            // if (!medicDoctorId.isEmpty()) {
+            //     assignRafaelToMedicDoctor(context, medicDoctorId);
+            // }
 
             // Check if doctor2 already exists
             User doctor2 = dbHelper.checkUser("doctor2", "password");
@@ -96,6 +126,7 @@ public class AddDoctorTest {
 
                     // Create a simple profile for the doctor
                     UserProfile doctorProfile2 = new UserProfile("Dr. Johnson", 52, 175, 80, "Cardiologist");
+                    doctorProfile2.setSpecialty("Cardiologist");
                     dbHelper.insertOrUpdateProfile(doctorId2, doctorProfile2);
                     Log.d(TAG, "Doctor 2 profile added successfully");
                 } else {
@@ -125,6 +156,7 @@ public class AddDoctorTest {
 
                     // Create a simple profile for the doctor
                     UserProfile doctorProfile3 = new UserProfile("Dr. Williams", 38, 170, 65, "Neurologist");
+                    doctorProfile3.setSpecialty("Neurologist");
                     dbHelper.insertOrUpdateProfile(doctorId3, doctorProfile3);
                     Log.d(TAG, "Doctor 3 profile added successfully");
                 } else {
@@ -154,6 +186,7 @@ public class AddDoctorTest {
 
                     // Create a simple profile for the doctor
                     UserProfile doctorProfile4 = new UserProfile("Dr. Brown", 42, 178, 72, "Endocrinologist");
+                    doctorProfile4.setSpecialty("Endocrinologist");
                     dbHelper.insertOrUpdateProfile(doctorId4, doctorProfile4);
                     Log.d(TAG, "Doctor 4 profile added successfully");
                 } else {
@@ -169,6 +202,10 @@ public class AddDoctorTest {
                 // Assign patient8, patient9, patient10, and patient11 to doctor4
                 assignPatientsToDoctor4(context, doctorId4);
             }
+
+            // Test assigning a patient to multiple doctors with the same specialty
+            testMultipleDoctorsSameSpecialty(context);
+            Log.d(TAG, "Tested assigning a patient to multiple doctors with the same specialty");
 
             return true;
         } catch (Exception e) {
@@ -695,10 +732,165 @@ public class AddDoctorTest {
     }
 
     /**
-     * Assigns rafael to medic doctor.
+     * Adds the three specialized doctors: cardio, pneumo, and nutri
      * @param context The context to use for database access
-     * @param doctorId The ID of medic doctor
      */
+    private static void addSpecializedDoctors(Context context) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Add cardiologist (cardio)
+            User cardioDoctor = dbHelper.checkUser("cardio", "password");
+            String cardioId = "";
+
+            if (cardioDoctor == null) {
+                // Add cardio doctor if it doesn't exist
+                long newCardioId = dbHelper.addDoctor("cardio", "password");
+                if (newCardioId != -1) {
+                    cardioId = String.valueOf(newCardioId);
+                    Log.d(TAG, "Cardio doctor added successfully with ID: " + cardioId);
+
+                    // Create a profile for the cardiologist
+                    UserProfile cardioProfile = new UserProfile("Dr. Cardio", 45, 175, 70, "Cardiologist");
+                    cardioProfile.setSpecialty("Cardiologist");
+                    dbHelper.insertOrUpdateProfile(cardioId, cardioProfile);
+                    Log.d(TAG, "Cardio doctor profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add cardio doctor");
+                }
+            } else {
+                cardioId = cardioDoctor.getUserId();
+                Log.d(TAG, "Cardio doctor already exists with ID: " + cardioId);
+
+                // Update the profile to ensure the specialty is correct
+                UserProfile cardioProfile = new UserProfile("Dr. Cardio", 45, 175, 70, "Cardiologist");
+                cardioProfile.setSpecialty("Cardiologist");
+                dbHelper.insertOrUpdateProfile(cardioId, cardioProfile);
+                Log.d(TAG, "Cardio doctor profile updated");
+            }
+
+            // Add pneumologist (pneumo)
+            User pneumoDoctor = dbHelper.checkUser("pneumo", "password");
+            String pneumoId = "";
+
+            if (pneumoDoctor == null) {
+                // Add pneumo doctor if it doesn't exist
+                long newPneumoId = dbHelper.addDoctor("pneumo", "password");
+                if (newPneumoId != -1) {
+                    pneumoId = String.valueOf(newPneumoId);
+                    Log.d(TAG, "Pneumo doctor added successfully with ID: " + pneumoId);
+
+                    // Create a profile for the pneumologist
+                    UserProfile pneumoProfile = new UserProfile("Dr. Pneumo", 40, 180, 75, "Pneumologist");
+                    pneumoProfile.setSpecialty("Pneumologist");
+                    dbHelper.insertOrUpdateProfile(pneumoId, pneumoProfile);
+                    Log.d(TAG, "Pneumo doctor profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add pneumo doctor");
+                }
+            } else {
+                pneumoId = pneumoDoctor.getUserId();
+                Log.d(TAG, "Pneumo doctor already exists with ID: " + pneumoId);
+
+                // Update the profile to ensure the specialty is correct
+                UserProfile pneumoProfile = new UserProfile("Dr. Pneumo", 40, 180, 75, "Pneumologist");
+                pneumoProfile.setSpecialty("Pneumologist");
+                dbHelper.insertOrUpdateProfile(pneumoId, pneumoProfile);
+                Log.d(TAG, "Pneumo doctor profile updated");
+            }
+
+            // Add nutritionist (nutri)
+            User nutriDoctor = dbHelper.checkUser("nutri", "password");
+            String nutriId = "";
+
+            if (nutriDoctor == null) {
+                // Add nutri doctor if it doesn't exist
+                long newNutriId = dbHelper.addDoctor("nutri", "password");
+                if (newNutriId != -1) {
+                    nutriId = String.valueOf(newNutriId);
+                    Log.d(TAG, "Nutri doctor added successfully with ID: " + nutriId);
+
+                    // Create a profile for the nutritionist
+                    UserProfile nutriProfile = new UserProfile("Dr. Nutri", 35, 165, 60, "Nutritionist");
+                    nutriProfile.setSpecialty("Nutritionist");
+                    dbHelper.insertOrUpdateProfile(nutriId, nutriProfile);
+                    Log.d(TAG, "Nutri doctor profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add nutri doctor");
+                }
+            } else {
+                nutriId = nutriDoctor.getUserId();
+                Log.d(TAG, "Nutri doctor already exists with ID: " + nutriId);
+
+                // Update the profile to ensure the specialty is correct
+                UserProfile nutriProfile = new UserProfile("Dr. Nutri", 35, 165, 60, "Nutritionist");
+                nutriProfile.setSpecialty("Nutritionist");
+                dbHelper.insertOrUpdateProfile(nutriId, nutriProfile);
+                Log.d(TAG, "Nutri doctor profile updated");
+            }
+
+            // Assign patients to the specialized doctors
+            assignPatientsToSpecializedDoctors(context, cardioId, pneumoId, nutriId);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error adding specialized doctors: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Assigns patients to the specialized doctors
+     * @param context The context to use for database access
+     * @param cardioId The ID of the cardiologist
+     * @param pneumoId The ID of the pneumologist
+     * @param nutriId The ID of the nutritionist
+     */
+    private static void assignPatientsToSpecializedDoctors(Context context, String cardioId, String pneumoId, String nutriId) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Get a patient to assign to all doctors
+            User patient1 = dbHelper.checkUser("patient1", "password");
+            if (patient1 != null) {
+                // Assign patient1 to all specialized doctors
+                if (!cardioId.isEmpty()) {
+                    dbHelper.assignPatientToDoctor(cardioId, patient1.getUserId());
+                    Log.d(TAG, "Patient 1 assigned to cardio doctor");
+                }
+
+                if (!pneumoId.isEmpty()) {
+                    dbHelper.assignPatientToDoctor(pneumoId, patient1.getUserId());
+                    Log.d(TAG, "Patient 1 assigned to pneumo doctor");
+                }
+
+                if (!nutriId.isEmpty()) {
+                    dbHelper.assignPatientToDoctor(nutriId, patient1.getUserId());
+                    Log.d(TAG, "Patient 1 assigned to nutri doctor");
+                }
+            }
+
+            // Assign additional patients to individual doctors
+            User patient2 = dbHelper.checkUser("patient2", "password");
+            if (patient2 != null && !cardioId.isEmpty()) {
+                dbHelper.assignPatientToDoctor(cardioId, patient2.getUserId());
+                Log.d(TAG, "Patient 2 assigned to cardio doctor");
+            }
+
+            User patient3 = dbHelper.checkUser("patient3", "password");
+            if (patient3 != null && !pneumoId.isEmpty()) {
+                dbHelper.assignPatientToDoctor(pneumoId, patient3.getUserId());
+                Log.d(TAG, "Patient 3 assigned to pneumo doctor");
+            }
+
+            User patient4 = dbHelper.checkUser("patient4", "password");
+            if (patient4 != null && !nutriId.isEmpty()) {
+                dbHelper.assignPatientToDoctor(nutriId, patient4.getUserId());
+                Log.d(TAG, "Patient 4 assigned to nutri doctor");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error assigning patients to specialized doctors: " + e.getMessage());
+        }
+    }
+
     private static void assignRafaelToMedicDoctor(Context context, String doctorId) {
         try {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
@@ -709,9 +901,98 @@ public class AddDoctorTest {
                 dbHelper.assignPatientToDoctor(doctorId, rafael.getUserId());
                 Log.d(TAG, "Rafael assigned to medic doctor");
             }
+
+            // Check if mihai already exists
+            User existingMihai = dbHelper.checkUser("mihai", "password");
+            long mihaiId = -1;
+            if (existingMihai != null) {
+                Log.d(TAG, "Mihai already exists");
+                mihaiId = Long.parseLong(existingMihai.getUserId());
+            } else {
+                // Add mihai only if it doesn't exist
+                mihaiId = dbHelper.addTestUser("mihai", "password", "patient");
+                Log.d(TAG, "Mihai added with ID: " + mihaiId);
+                // Note: We intentionally do not create a profile for mihai as per requirements
+            }
+
+            // Assign mihai to medic doctor
+            if (mihaiId != -1) {
+                dbHelper.assignPatientToDoctor(doctorId, String.valueOf(mihaiId));
+                Log.d(TAG, "Mihai assigned to medic doctor");
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Error assigning rafael to medic doctor: " + e.getMessage());
+            Log.e(TAG, "Error assigning patients to medic doctor: " + e.getMessage());
         }
     }
 
+    /**
+     * Test method to verify that a patient can be assigned to multiple doctors with the same specialty
+     * @param context The context to use for database access
+     */
+    public static void testMultipleDoctorsSameSpecialty(Context context) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Create two doctors with the same specialty
+            User existingCardio1 = dbHelper.checkUser("cardio1", "password");
+            String cardio1Id;
+            if (existingCardio1 == null) {
+                long newCardio1Id = dbHelper.addTestUser("cardio1", "password", "doctor");
+                cardio1Id = String.valueOf(newCardio1Id);
+
+                // Create a profile for the cardiologist
+                UserProfile cardio1Profile = new UserProfile("Dr. Cardio 1", 40, 175, 70, "Cardiologist");
+                cardio1Profile.setSpecialty("Cardiologist");
+                dbHelper.insertOrUpdateProfile(cardio1Id, cardio1Profile);
+                Log.d(TAG, "Cardio doctor 1 added successfully with ID: " + cardio1Id);
+            } else {
+                cardio1Id = existingCardio1.getUserId();
+                Log.d(TAG, "Cardio doctor 1 already exists with ID: " + cardio1Id);
+            }
+
+            User existingCardio2 = dbHelper.checkUser("cardio2", "password");
+            String cardio2Id;
+            if (existingCardio2 == null) {
+                long newCardio2Id = dbHelper.addTestUser("cardio2", "password", "doctor");
+                cardio2Id = String.valueOf(newCardio2Id);
+
+                // Create a profile for the second cardiologist
+                UserProfile cardio2Profile = new UserProfile("Dr. Cardio 2", 45, 180, 75, "Cardiologist");
+                cardio2Profile.setSpecialty("Cardiologist");
+                dbHelper.insertOrUpdateProfile(cardio2Id, cardio2Profile);
+                Log.d(TAG, "Cardio doctor 2 added successfully with ID: " + cardio2Id);
+            } else {
+                cardio2Id = existingCardio2.getUserId();
+                Log.d(TAG, "Cardio doctor 2 already exists with ID: " + cardio2Id);
+            }
+
+            // Get a patient to assign to both cardiologists
+            User patient = dbHelper.checkUser("patient1", "password");
+            if (patient != null) {
+                // Assign patient to both cardiologists
+                long result1 = dbHelper.assignPatientToDoctor(cardio1Id, patient.getUserId());
+                Log.d(TAG, "Patient assigned to cardio doctor 1, result: " + result1);
+
+                long result2 = dbHelper.assignPatientToDoctor(cardio2Id, patient.getUserId());
+                Log.d(TAG, "Patient assigned to cardio doctor 2, result: " + result2);
+
+                // Verify that the patient is assigned to both doctors
+                boolean isAssignedToCardio1 = dbHelper.isPatientAssignedToDoctor(cardio1Id, patient.getUserId());
+                boolean isAssignedToCardio2 = dbHelper.isPatientAssignedToDoctor(cardio2Id, patient.getUserId());
+
+                Log.d(TAG, "Patient assigned to cardio doctor 1: " + isAssignedToCardio1);
+                Log.d(TAG, "Patient assigned to cardio doctor 2: " + isAssignedToCardio2);
+
+                if (isAssignedToCardio1 && isAssignedToCardio2) {
+                    Log.d(TAG, "SUCCESS: Patient successfully assigned to multiple doctors with the same specialty");
+                } else {
+                    Log.e(TAG, "FAILURE: Patient could not be assigned to multiple doctors with the same specialty");
+                }
+            } else {
+                Log.e(TAG, "Patient1 not found for testing");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error testing multiple doctors with same specialty: " + e.getMessage());
+        }
+    }
 }

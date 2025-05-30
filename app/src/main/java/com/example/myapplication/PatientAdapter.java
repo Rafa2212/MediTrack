@@ -1,19 +1,28 @@
 package com.example.myapplication;
 
+import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityOptionsCompat;
 import androidx.core.util.Pair;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.snackbar.Snackbar;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 
 public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientViewHolder> {
     private final List<User> patients;
@@ -47,9 +56,9 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
                 String lastReportDate = latestReport.getReportDate();
                 String formattedDate = "";
                 try {
-                    java.time.format.DateTimeFormatter inputFormatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-                    java.time.LocalDateTime dateTime = java.time.LocalDateTime.parse(lastReportDate, inputFormatter);
-                    java.time.format.DateTimeFormatter outputFormatter = java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.ENGLISH);
+                    DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+                    LocalDateTime dateTime = LocalDateTime.parse(lastReportDate, inputFormatter);
+                    DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH);
                     formattedDate = dateTime.format(outputFormatter);
                     holder.patientMedicalReport.setText("Last Medical Report: " + formattedDate);
                 } catch (Exception e) {
@@ -64,6 +73,35 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
             holder.patientAge.setTransitionName("patient_age_" + patient.getUserId());
             holder.patientMedicalReport.setTransitionName("patient_report_" + patient.getUserId());
 
+            // Set up deassign button click listener
+            holder.btnDeassign.setOnClickListener(v -> {
+                // Get the current doctor ID from SharedPreferences
+                SharedPreferences preferences = context.getSharedPreferences("PREFERENCE", Context.MODE_PRIVATE);
+                String doctorId = preferences.getString("userId", "");
+
+                if (!doctorId.isEmpty()) {
+                    // Deassign the patient from the doctor
+                    boolean success = dbHelper.deassignPatientFromDoctor(doctorId, patient.getUserId());
+
+                    if (success) {
+                        // Remove the patient from the list
+                        patients.remove(position);
+                        notifyItemRemoved(position);
+                        notifyItemRangeChanged(position, patients.size());
+
+                        // Show success message
+                        Snackbar.make(v,
+                                "Patient deassigned successfully!",
+                                Snackbar.LENGTH_SHORT).show();
+                    } else {
+                        // Show error message
+                        Snackbar.make(v,
+                                "Failed to deassign!",
+                                Snackbar.LENGTH_SHORT).show();
+                    }
+                }
+            });
+
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(context, DoctorPatientsActivity.class);
                 intent.putExtra("patient_id", patient.getUserId());
@@ -74,7 +112,7 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
                 Pair<View, String> p3 = Pair.create((View) holder.patientMedicalReport, holder.patientMedicalReport.getTransitionName());
 
                 ActivityOptionsCompat options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-                        (android.app.Activity) context, p1, p2, p3);
+                        (Activity) context, p1, p2, p3);
 
                 context.startActivity(intent, options.toBundle());
             });
@@ -90,12 +128,14 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
         TextView patientName;
         TextView patientAge;
         TextView patientMedicalReport;
+        Button btnDeassign;
 
         PatientViewHolder(View itemView) {
             super(itemView);
             patientName = itemView.findViewById(R.id.patient_name);
             patientAge = itemView.findViewById(R.id.patient_age);
             patientMedicalReport = itemView.findViewById(R.id.patient_medical_report);
+            btnDeassign = itemView.findViewById(R.id.btn_deassign);
         }
     }
 }

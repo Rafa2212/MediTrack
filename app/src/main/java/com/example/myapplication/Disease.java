@@ -6,6 +6,9 @@ public class Disease {
     private int diseaseId;
     private String name;
     private String interpretation;
+    private String doctorName;
+    private String doctorId;
+    private String diagnosisDate;
 
     public Disease (String icd10, String name, String interpretation){
         this.ICD10 = icd10;
@@ -17,6 +20,24 @@ public class Disease {
         this.diseaseId = id;
         this.name = name;
         this.ICD10 = ICD10;
+    }
+
+    public Disease(int id, String name, String ICD10, String doctorName, String diagnosisDate) {
+        this.diseaseId = id;
+        this.name = name;
+        this.ICD10 = ICD10;
+        this.doctorName = doctorName;
+        this.diagnosisDate = diagnosisDate;
+        this.doctorId = null; // Default to null
+    }
+
+    public Disease(int id, String name, String ICD10, String doctorName, String doctorId, String diagnosisDate) {
+        this.diseaseId = id;
+        this.name = name;
+        this.ICD10 = ICD10;
+        this.doctorName = doctorName;
+        this.doctorId = doctorId;
+        this.diagnosisDate = diagnosisDate;
     }
 
     public int getDiseaseId() {
@@ -35,7 +56,31 @@ public class Disease {
         return interpretation;
     }
 
+    public String getDoctorName() {
+        return doctorName;
+    }
+
+    public String getDiagnosisDate() {
+        return diagnosisDate;
+    }
+
     public void setName(String name) {
         this.name = name;
+    }
+
+    public void setDoctorName(String doctorName) {
+        this.doctorName = doctorName;
+    }
+
+    public void setDiagnosisDate(String diagnosisDate) {
+        this.diagnosisDate = diagnosisDate;
+    }
+
+    public String getDoctorId() {
+        return doctorId;
+    }
+
+    public void setDoctorId(String doctorId) {
+        this.doctorId = doctorId;
     }
 }

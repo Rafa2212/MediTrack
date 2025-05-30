@@ -6,6 +6,7 @@ package com.example.myapplication;
 public class MedicalReport {
     private final String reportId;
     private final String patientId;
+    private final String doctorId;
     private final String reportDate;
     private final String reportContent;
     private final String reportPath;
@@ -14,13 +15,15 @@ public class MedicalReport {
      * Constructor for MedicalReport
      * @param reportId The ID of the report
      * @param patientId The ID of the patient
+     * @param doctorId The ID of the doctor who created the report
      * @param reportDate The date of the report
      * @param reportContent The content of the report
      * @param reportPath The path to the PDF file
      */
-    public MedicalReport(String reportId, String patientId, String reportDate, String reportContent, String reportPath) {
+    public MedicalReport(String reportId, String patientId, String doctorId, String reportDate, String reportContent, String reportPath) {
         this.reportId = reportId;
         this.patientId = patientId;
+        this.doctorId = doctorId;
         this.reportDate = reportDate;
         this.reportContent = reportContent;
         this.reportPath = reportPath;
@@ -40,6 +43,14 @@ public class MedicalReport {
      */
     public String getPatientId() {
         return patientId;
+    }
+
+    /**
+     * Gets the doctor ID
+     * @return The doctor ID
+     */
+    public String getDoctorId() {
+        return doctorId;
     }
 
     /**

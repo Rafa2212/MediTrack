@@ -67,16 +67,13 @@ public class WeeklyReportActivity extends BaseActivity {
 
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
 
-        Map<String, ?> allEntries = preferences.getAll();
-        ArrayList<Disease> diseasesList = new ArrayList<>();
-        for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-            String[] parts = entry.getKey().split("#");
-            if (parts[0].equals("Disease")) {
-                long diseaseId = Long.parseLong(preferences.getString(entry.getKey(), ""));
-                Session curr_disease = dbHelper.getSession(diseaseId);
-                String diseaseInterpretation = curr_disease.getValue();
-                diseasesList.add(new Disease(parts[1], parts[2], diseaseInterpretation));
-            }
+        // Get diseases for the current patient from the database
+        // This will only include diseases that have not been deleted
+        List<Disease> diseasesList = dbHelper.getDiseasesForPatient(curr_user);
+
+        // Convert to ArrayList if needed
+        if (!(diseasesList instanceof ArrayList)) {
+            diseasesList = new ArrayList<>(diseasesList);
         }
 
         LinearLayout diseasesLinearLayout = findViewById(R.id.diseasesLinearLayout);
@@ -120,7 +117,9 @@ public class WeeklyReportActivity extends BaseActivity {
                             startActivity(intent);
                         } catch (Exception e) {
                             Log.e("WeeklyReportActivity", "Error opening PDF file: " + e.getMessage(), e);
-                            Toast.makeText(WeeklyReportActivity.this, "Error opening PDF file", Toast.LENGTH_SHORT).show();
+                            Snackbar.make(findViewById(android.R.id.content),
+                                    "Error opening PDF file!",
+                                    Snackbar.LENGTH_SHORT).show();
                         }
                     });
                 } else {
@@ -173,11 +172,16 @@ public class WeeklyReportActivity extends BaseActivity {
             String BMIQ = editTextBMIQ.getText().toString();
             List<String> lstString = getDiseasesStringList(diseasesLinearLayout);
             boolean areAllFieldsCompleted = true;
-            for (int i = 0; i < lstString.toArray().length; i++){
+            if (lstString != null && !lstString.isEmpty()) {
+                Object[] stringArray = lstString.toArray();
+                for (int i = 0; i < stringArray.length; i++){
                     if (lstString.get(i).isEmpty()){
                         areAllFieldsCompleted = false;
                         break;
                     }
+                }
+            } else {
+                areAllFieldsCompleted = false;
             }
 
             if (TextUtils.isEmpty(firstQ) || TextUtils.isEmpty(BMIQ) || !areAllFieldsCompleted) {
@@ -237,7 +241,16 @@ public class WeeklyReportActivity extends BaseActivity {
                                     .build();
 
                             ChatCompletionResult result = service.createChatCompletion(completionRequest);
-                            String weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
+
+                            // Add null checks to prevent NullPointerException
+                            final String weeklyReportResponse;
+                            if (result != null && result.getChoices() != null && !result.getChoices().isEmpty()) {
+                                weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
+                            } else {
+                                // Handle the case where result or choices is null or empty
+                                weeklyReportResponse = "Error generating report. Please try again later.";
+                                Log.e("WeeklyReportActivity", "OpenAI API returned null or empty result");
+                            }
 
                             // Get current timestamp for the report
                             String reportDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
@@ -252,7 +265,8 @@ public class WeeklyReportActivity extends BaseActivity {
                             handler.post(() -> {
                                 // Save the report in the database
                                 long reportId = dbHelper.saveMedicalReport(
-                                    curr_user, 
+                                    curr_user,
+                                    "",
                                     reportDate, 
                                     weeklyReportResponse, 
                                     pdfFile.getAbsolutePath()
@@ -298,7 +312,7 @@ public class WeeklyReportActivity extends BaseActivity {
                                             // Get the latest report from the database
                                             MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(curr_user);
 
-                                            if (latestReport != null && !latestReport.getReportPath().isEmpty()) {
+                                            if (latestReport != null && latestReport.getReportPath() != null && !latestReport.getReportPath().isEmpty()) {
                                                 // Log the report path for debugging
                                                 Log.d("WeeklyReportActivity", "Report path: " + latestReport.getReportPath());
 
@@ -317,15 +331,21 @@ public class WeeklyReportActivity extends BaseActivity {
                                                     startActivity(intent);
                                                 } else {
                                                     Log.e("WeeklyReportActivity", "File does not exist at path: " + file.getAbsolutePath());
-                                                    Toast.makeText(WeeklyReportActivity.this, "PDF file not found", Toast.LENGTH_SHORT).show();
+                                                    Snackbar.make(findViewById(android.R.id.content),
+                                                            "PDF file not found!",
+                                                            Snackbar.LENGTH_SHORT).show();
                                                 }
                                             } else {
                                                 Log.e("WeeklyReportActivity", "No report available or empty report path");
-                                                Toast.makeText(WeeklyReportActivity.this, "No report available", Toast.LENGTH_SHORT).show();
+                                                Snackbar.make(findViewById(android.R.id.content),
+                                                        "No report available!",
+                                                        Snackbar.LENGTH_SHORT).show();
                                             }
                                         } catch (Exception e) {
                                             Log.e("WeeklyReportActivity", "Error opening PDF file: " + e.getMessage(), e);
-                                            Toast.makeText(WeeklyReportActivity.this, "Error opening PDF file", Toast.LENGTH_SHORT).show();
+                                            Snackbar.make(findViewById(android.R.id.content),
+                                                    "Error opening PDF file!",
+                                                    Snackbar.LENGTH_SHORT).show();
                                         }
                                     });
 
@@ -408,7 +428,8 @@ public class WeeklyReportActivity extends BaseActivity {
     public String generatePrompt(UserProfile userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates) {
         @SuppressLint("DefaultLocale") String prompt = String.format(
                 "You are creating a comprehensive medical report PDF for a patient based on their Fitbit data and health metrics. " +
-                "Please structure your response with clear sections using markdown headings (# for main title, ## for sections, ### for subsections).\n\n" +
+                "You must structure your response as a formal medical report with clear, well-delimited sections using markdown headings " +
+                "(# for main title, ## for sections, ### for subsections).\n\n" +
 
                 "# PATIENT INFORMATION AND DATA\n" +
                 "Current date: %s\n" +
@@ -416,12 +437,20 @@ public class WeeklyReportActivity extends BaseActivity {
                 "Age: %d years\n" +
                 "Height: %.2f cm\n" +
                 "Weight: %.2f kg\n" +
-                "BMI: %.2f\n\n" +
+                "BMI: %.2f\n" +
+                "Body Fat Percentage: %.1f%%\n" +
+                "Blood Pressure: %d/%d mmHg\n" +
+                "Resting Heart Rate: %d bpm\n" +
+                "Blood Glucose: %.1f mg/dL\n" +
+                "Cholesterol - Total: %.1f mg/dL\n" +
+                "Cholesterol - HDL: %.1f mg/dL\n" +
+                "Cholesterol - LDL: %.1f mg/dL\n" +
+                "Health Score: %d/100\n\n" +
 
                 "# FITBIT ACTIVITY DATA\n" +
                 "Average steps per day: %d steps\n" +
                 "Sedentary minutes per day: %d minutes\n" +
-                "Resting heart rate: %.2f bpm\n" +
+                "Resting heart rate: %d bpm\n" +
                 "Average breathing rate: %.2f breaths per minute\n" +
                 "Active zone minutes per week: %d minutes\n\n" +
 
@@ -431,11 +460,12 @@ public class WeeklyReportActivity extends BaseActivity {
                 "Minutes to fall asleep: %d\n" +
                 "Restless events: %d\n" +
                 "Restless duration: %d minutes\n" +
-                "Total time in bed: %d minutes\n" +
-                "Deep sleep: %d minutes\n" +
-                "Light sleep: %d minutes\n" +
-                "REM sleep: %d minutes\n" +
-                "Wake during sleep: %d minutes\n\n" +
+                "Total time in bed: %d minutes (%.1f hours)\n" +
+                "Deep sleep: %d minutes (%.1f hours)\n" +
+                "Light sleep: %d minutes (%.1f hours)\n" +
+                "REM sleep: %d minutes (%.1f hours)\n" +
+                "Wake during sleep: %d minutes\n" +
+                "Sleep efficiency: %.1f%%\n\n" +
 
                 "# CARDIOVASCULAR METRICS\n" +
                 "Heart rate variability (daily RMSSD): %.2f ms\n" +
@@ -448,34 +478,78 @@ public class WeeklyReportActivity extends BaseActivity {
                 "Current conditions (ICD10) self-assessment: %s\n\n" +
 
                 "# REPORT STRUCTURE REQUIREMENTS\n" +
-                "Please create a well-structured medical report with the following sections:\n\n" +
+                "Create a formal medical report with the following sections. Each section must be clearly delimited with proper headings and spacing:\n\n" +
 
-                "1. **Weekly Report Header** - Include patient name and current date\n\n" +
+                "1. **MEDICAL REPORT HEADER**\n" +
+                "   - Title: \"WEEKLY HEALTH ASSESSMENT REPORT\"\n" +
+                "   - Patient: Full name\n" +
+                "   - Date: Current date formatted as Month Day, Year\n" +
+                "   - Report ID: Generate a unique report ID\n" +
+                "   - Physician: Dr. [Use 'Medic' as the physician name]\n\n" +
 
-                "2. **BMI Analysis** - Interpret the patient's BMI (%.2f) in context of their age (%d) and overall health. " +
-                "Explain what BMI category they fall into (underweight, normal, overweight, obese) and what this means for their health. " +
-                "Consider any trends or changes if available.\n\n" +
+                "2. **PATIENT PROFILE SUMMARY**\n" +
+                "   - Brief demographic information\n" +
+                "   - Key health indicators (BMI, blood pressure, etc.)\n" +
+                "   - Current health status overview\n\n" +
 
-                "3. **Metabolic Balance Analysis** - Analyze the patient's metabolic health based on activity metrics " +
-                "(steps, sedentary minutes, active zone minutes) and physiological indicators (resting heart rate, breathing rate). " +
-                "Provide specific insights on how these values compare to recommended ranges and what they indicate about the patient's metabolic health.\n\n" +
+                "3. **BMI AND BODY COMPOSITION ANALYSIS**\n" +
+                "   - Current BMI: %.2f (calculate exact category)\n" +
+                "   - Detailed interpretation of BMI category for this %d-year-old patient\n" +
+                "   - Body composition assessment including body fat percentage\n" +
+                "   - Health implications of current measurements\n" +
+                "   - Comparison to ideal ranges for patient's demographic\n\n" +
 
-                "4. **Health Diagnostics** - Provide detailed analysis of:\n" +
-                "   - Cardiovascular health (based on heart rate, HRV, and VO2 max)\n" +
-                "   - Respiratory function (based on breathing rate)\n" +
-                "   - Sleep quality (analyze sleep stages, efficiency, and patterns)\n" +
-                "   Include specific interpretations of what these values mean for the patient's health.\n\n" +
+                "4. **METABOLIC HEALTH ASSESSMENT**\n" +
+                "   - Activity level analysis (steps, sedentary time, active minutes)\n" +
+                "   - Cardiovascular indicators (resting heart rate, blood pressure)\n" +
+                "   - Metabolic efficiency indicators\n" +
+                "   - Specific insights on how these values compare to clinical guidelines\n" +
+                "   - Metabolic health risk assessment\n\n" +
 
-                "5. **Patient Feedback Integration** - Incorporate the patient's self-reported assessments with the objective data. " +
-                "Discuss any discrepancies between self-perception and measured metrics.\n\n" +
+                "5. **CARDIOVASCULAR FUNCTION**\n" +
+                "   - Heart rate variability analysis (detailed interpretation of RMSSD values)\n" +
+                "   - VO2 max assessment and fitness level classification\n" +
+                "   - Cardiovascular risk stratification\n" +
+                "   - Specific interpretations of what these values indicate for long-term health\n\n" +
 
-                "6. **Recommendations** - Provide actionable, personalized recommendations based on all the above data. " +
-                "Include specific lifestyle modifications, exercise suggestions, and potential areas to discuss with healthcare providers.\n\n" +
+                "6. **SLEEP QUALITY ANALYSIS**\n" +
+                "   - Sleep architecture breakdown (deep, light, REM percentages)\n" +
+                "   - Sleep efficiency calculation and interpretation\n" +
+                "   - Sleep quality assessment\n" +
+                "   - Sleep hygiene evaluation\n" +
+                "   - Impact of current sleep patterns on health\n\n" +
 
-                "7. **Summary** - A concise overview of key findings and most important recommendations.\n\n" +
+                "7. **PATIENT SELF-ASSESSMENT INTEGRATION**\n" +
+                "   - Analysis of patient's subjective health reports\n" +
+                "   - Correlation between objective metrics and subjective experience\n" +
+                "   - Identification of perception-reality gaps\n" +
+                "   - Psychological aspects of health management\n\n" +
 
-                "Format the report professionally with clear headings, bullet points where appropriate, and bold text for emphasis on key points. " +
-                "Use medical terminology but ensure explanations are accessible to both patients and healthcare providers.",
+                "8. **CLINICAL RECOMMENDATIONS**\n" +
+                "   - Prioritized, actionable recommendations (minimum 5)\n" +
+                "   - Lifestyle modifications with specific targets\n" +
+                "   - Exercise prescription with frequency, intensity, time, and type\n" +
+                "   - Nutritional guidance relevant to metabolic profile\n" +
+                "   - Sleep optimization strategies\n" +
+                "   - Stress management techniques if indicated\n" +
+                "   - Follow-up testing recommendations\n\n" +
+
+                "9. **SUMMARY AND PROGNOSIS**\n" +
+                "   - Concise overview of key findings\n" +
+                "   - Health trajectory assessment\n" +
+                "   - Potential health outcomes with and without intervention\n" +
+                "   - Timeline for expected improvements\n\n" +
+
+                "Format this as a professional medical document with:\n" +
+                "- Clear section demarcation\n" +
+                "- Professional medical terminology with patient-friendly explanations\n" +
+                "- Strategic use of bullet points for clarity\n" +
+                "- Bold text for critical values and key recommendations\n" +
+                "- Clinical interpretation alongside each major metric\n" +
+                "- Reference ranges where appropriate\n" +
+                "- Page numbers in format 'Page X of Y'\n\n" +
+
+                "This report will be converted to PDF format, so maintain proper formatting with clear paragraph breaks and consistent spacing.",
 
                 // Patient information
                 LocalDateTime.now().toString(),
@@ -484,11 +558,20 @@ public class WeeklyReportActivity extends BaseActivity {
                 userProfile.getHeight(),
                 userProfile.getWeight(),
                 BMI,
+                userProfile.getBodyFatPercentage(),
+                userProfile.getBloodPressureSystolic(),
+                userProfile.getBloodPressureDiastolic(),
+                userProfile.getRestingHeartRate(),
+                userProfile.getBloodGlucose(),
+                userProfile.getCholesterolTotal(),
+                userProfile.getCholesterolHDL(),
+                userProfile.getCholesterolLDL(),
+                userProfile.getHealthScore(),
 
                 // Activity data
                 userProfile.getAverageSteps(),
                 userProfile.getAverageSedentaryMinutes(),
-                userProfile.getAverageBreathingRate(),
+                userProfile.getRestingHeartRate(),
                 userProfile.getAverageBreathingRate(),
                 userProfile.getAverageActiveZoneMinutes(),
 
@@ -499,10 +582,17 @@ public class WeeklyReportActivity extends BaseActivity {
                 userProfile.getRestlessCount(),
                 userProfile.getRestlessDuration(),
                 userProfile.getTimeInBed(),
+                userProfile.getTimeInBed() / 60.0f,
                 userProfile.getDeepSleep(),
+                userProfile.getDeepSleep() / 60.0f,
                 userProfile.getLightSleep(),
+                userProfile.getLightSleep() / 60.0f,
                 userProfile.getRemSleep(),
+                userProfile.getRemSleep() / 60.0f,
                 userProfile.getWakeSleep(),
+                // Calculate sleep efficiency (time asleep / time in bed * 100)
+                userProfile.getTimeInBed() > 0 ? 
+                    (float)(userProfile.getTimeInBed() - userProfile.getWakeSleep()) / userProfile.getTimeInBed() * 100 : 0,
 
                 // Cardiovascular metrics
                 userProfile.getAverageDailyRmssd(),
@@ -512,7 +602,7 @@ public class WeeklyReportActivity extends BaseActivity {
                 // Patient feedback
                 firstQ,
                 BMIQ,
-                String.join(", ", diseasesStates),
+                diseasesStates != null ? String.join(", ", diseasesStates) : "",
 
                 // Additional parameters for specific sections
                 BMI,
@@ -632,7 +722,7 @@ public class WeeklyReportActivity extends BaseActivity {
         layoutParams.setMargins(24, 24, 24, 0);
         textInputLayout.setLayoutParams(layoutParams);
 
-        textInputLayout.setHint(" (" + disease.getICD10() + ") state?");
+        textInputLayout.setHint(disease.getName() +  "state?");
 
         textInputLayout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
         textInputLayout.setBoxStrokeWidth(1);

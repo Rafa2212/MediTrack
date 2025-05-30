@@ -1,14 +1,18 @@
 package com.example.myapplication;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
+
+import static android.content.Context.MODE_PRIVATE;
 
 public class DiseaseAdapter extends RecyclerView.Adapter<DiseaseAdapter.DiseaseViewHolder> {
     private final Context context;
@@ -32,8 +36,45 @@ public class DiseaseAdapter extends RecyclerView.Adapter<DiseaseAdapter.DiseaseV
     @Override
     public void onBindViewHolder(@NonNull DiseaseViewHolder holder, int position) {
         Disease disease = diseaseList.get(position);
-        holder.diseaseNameTextView.setText(disease.getName());
+
+        // Format the disease name to include doctor and date information
+        String doctorInfo = "";
+        if (disease.getDoctorName() != null && !disease.getDoctorName().isEmpty()) {
+            doctorInfo = " (Dr. " + disease.getDoctorName();
+
+            if (disease.getDiagnosisDate() != null && !disease.getDiagnosisDate().isEmpty()) {
+                doctorInfo += ", " + disease.getDiagnosisDate();
+            }
+
+            doctorInfo += ")";
+        }
+
+        // Set the disease name with doctor info
+        holder.diseaseNameTextView.setText(disease.getName() + doctorInfo);
+
+        // Make the text smaller to fit on one line
+        holder.diseaseNameTextView.setTextSize(14); // Smaller text size
+
         holder.icd10TextView.setText(disease.getICD10());
+
+        // Get current doctor ID from SharedPreferences
+        SharedPreferences preferences = context.getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String currentDoctorId = preferences.getString("userId", "");
+
+        // Check if the current doctor is the creator of this disease
+        boolean isCreator = disease.getDoctorId() != null && disease.getDoctorId().equals(currentDoctorId);
+
+        // Enable or disable the delete button based on whether the current doctor is the creator
+        holder.deleteButton.setEnabled(isCreator);
+
+        // Change the appearance of the delete button based on whether it's enabled
+        if (isCreator) {
+            // Button is enabled - use normal color
+            holder.deleteButton.setAlpha(1.0f);
+        } else {
+            // Button is disabled - grey it out
+            holder.deleteButton.setAlpha(0.3f);
+        }
 
         holder.deleteButton.setOnClickListener(v -> onDiseaseActionListener.onDeleteDisease(disease));
     }

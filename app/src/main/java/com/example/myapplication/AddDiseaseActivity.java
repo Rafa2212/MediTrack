@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.*;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -49,6 +50,20 @@ public class AddDiseaseActivity
         dbHelper = new DatabaseHelper(this);
 
         editTextICD10 = findViewById(R.id.editTextICD10Code);
+        TextView specialtyInfoTextView = findViewById(R.id.specialtyInfoTextView);
+
+        // Check if the current user is a doctor and display specialty information
+        if (dbHelper.isDoctor(CURRENT_USER_ID)) {
+            UserProfile doctorProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
+            String specialty = doctorProfile.getSpecialty();
+
+            if (specialty != null && !specialty.isEmpty()) {
+                String validCodesDescription = ICD10SpecialtyMapper.getValidCodesDescription(specialty);
+                specialtyInfoTextView.setText("Your specialty: " + specialty + "\n" +
+                        "You can only assign: " + validCodesDescription);
+                specialtyInfoTextView.setVisibility(View.VISIBLE);
+            }
+        }
 
         Button saveButton = findViewById(R.id.saveDiseaseButton);
         saveButton.setOnClickListener(v -> {
@@ -98,6 +113,24 @@ public class AddDiseaseActivity
                                 Snackbar.LENGTH_SHORT)
                         .show();
             } else {
+                // First check if the user is a doctor and if the ICD-10 code is valid for their specialty
+                if (dbHelper.isDoctor(CURRENT_USER_ID)) {
+                    UserProfile doctorProfile = dbHelper.getUserProfile(CURRENT_USER_ID);
+                    String specialty = doctorProfile.getSpecialty();
+
+                    // Check if the ICD-10 code is valid for the doctor's specialty
+                    if (!ICD10SpecialtyMapper.isCodeValidForSpecialty(icd10Code, specialty)) {
+                        String validCodesDescription = ICD10SpecialtyMapper.getValidCodesDescription(specialty);
+                        Snackbar.make(
+                                findViewById(android.R.id.content), 
+                                "This ICD-10 code is not valid for your specialty (" + specialty + "). " +
+                                "You can only assign codes for: " + validCodesDescription, 
+                                Snackbar.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+                }
+
                 isValidIcd10Code(icd10Code, (isValid, disease) -> {
                     if (!isValid) {
                         Snackbar
@@ -132,10 +165,20 @@ public class AddDiseaseActivity
 
                         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                         Map<String, ?> allEntries = preferences.getAll();
-                        for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-                            String[] key = entry.getKey().split("#");
-                            if (Objects.equals(key[0], "Disease") && Objects.equals(key[1], icd10Code)) {
-                                exists = true;
+                        if (allEntries != null) {
+                            for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
+                                try {
+                                    String entryKey = entry.getKey();
+                                    if (entryKey == null) continue;
+
+                                    String[] key = entryKey.split("#");
+                                    if (key.length >= 2 && Objects.equals(key[0], "Disease") && Objects.equals(key[1], icd10Code)) {
+                                        exists = true;
+                                        break;
+                                    }
+                                } catch (Exception e) {
+                                    Log.e("AddDiseaseActivity", "Error processing entry", e);
+                                }
                             }
                         }
 

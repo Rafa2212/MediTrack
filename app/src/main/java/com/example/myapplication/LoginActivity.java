@@ -18,6 +18,7 @@ public class LoginActivity extends AppCompatActivity {
     private EditText editTextUsername, editTextPassword;
     private DatabaseHelper dbHelper;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // Enable window content transitions
@@ -42,17 +43,25 @@ public class LoginActivity extends AppCompatActivity {
                 if (user.getUserProfile() == null) {
                     // User needs to set up profile
                     intent = new Intent(LoginActivity.this, ProfileSetupActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    finish();
                 } else if ("doctor".equals(user.getRole())) {
                     // Doctor dashboard
                     intent = new Intent(this, DoctorDashboardActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    finish();
                 } else {
                     // Patient dashboard
                     intent = new Intent(this, DashboardActivity.class);
-                }
 
-                startActivity(intent);
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
-                finish();
+                    // Start the dashboard activity
+                    startActivity(intent);
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+
+                    finish();
+                }
                 return;
             }
         }
@@ -70,6 +79,15 @@ public class LoginActivity extends AppCompatActivity {
 
         // Add a doctor user for testing
         AddDoctorTest.addDoctorForTesting(this);
+
+        // Ensure the 'medic' user exists
+        AddMedicUser.addMedicUser(this);
+
+        // Create a profile for rafael with realistic health data
+        SimulateRafaelProfile.createRafaelProfile(this);
+
+        // Simulate that patient8's weekly feedback is available to complete
+        //SimulatePatient8Feedback.simulatePatient8Feedback(this);
 
         editTextUsername = findViewById(R.id.editTextUsername);
         editTextPassword = findViewById(R.id.editTextPassword);
@@ -111,11 +129,14 @@ public class LoginActivity extends AppCompatActivity {
                 Intent intent;
                 if ("doctor".equals(user.getRole())) {
                     intent = new Intent(this, DoctorDashboardActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
                 } else {
+                    // Patient dashboard
                     intent = new Intent(this, DashboardActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
                 }
-                startActivity(intent);
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
             }
 
             finish();

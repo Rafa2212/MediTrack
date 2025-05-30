@@ -20,11 +20,13 @@ import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.text.Editable;
+import android.text.TextWatcher;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatCompletionResult;
 import com.theokanning.openai.completion.chat.ChatMessage;
@@ -59,9 +61,11 @@ public class DoctorPatientsActivity extends BaseActivity {
     private DiseaseAdapter diseaseAdapter;
     private List<Disease> diseasesList;
 
-    private TextInputEditText editTextICD10;
+    private MaterialAutoCompleteTextView editTextICD10;
     private Button saveDiseaseButton;
     private static final OkHttpClient client = new OkHttpClient();
+    private Icd10SearchAdapter searchAdapter;
+    private List<Icd10SearchResult> searchResults = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,6 +93,65 @@ public class DoctorPatientsActivity extends BaseActivity {
         // Initialize disease addition UI elements
         editTextICD10 = findViewById(R.id.editTextICD10Code);
         saveDiseaseButton = findViewById(R.id.saveDiseaseButton);
+        TextView specialtyInfoTextView = findViewById(R.id.specialtyInfoTextView);
+
+        // Check if the current user is a doctor and display specialty information
+        SharedPreferences prefs = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+        String doctorId = prefs.getString("userId", "");
+//        if (!doctorId.isEmpty() && dbHelper.isDoctor(doctorId)) {
+//            UserProfile doctorProfile = dbHelper.getUserProfile(doctorId);
+//            String specialty = doctorProfile.getSpecialty();
+//
+//            if (specialty != null && !specialty.isEmpty()) {
+//                String validCodesDescription = ICD10SpecialtyMapper.getValidCodesDescription(specialty);
+//                specialtyInfoTextView.setText("Your specialty: " + specialty + "\n" +
+//                        "You can only assign: " + validCodesDescription);
+//                specialtyInfoTextView.setVisibility(View.VISIBLE);
+//            }
+//        }
+
+        // Initialize search adapter
+        searchAdapter = new Icd10SearchAdapter(this, searchResults);
+        editTextICD10.setAdapter(searchAdapter);
+
+        // Set up text change listener to trigger search
+        editTextICD10.addTextChangedListener(new TextWatcher() {
+            private Handler handler = new Handler(Looper.getMainLooper());
+            private Runnable searchRunnable;
+
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // Not needed
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Cancel any pending searches
+                if (searchRunnable != null) {
+                    handler.removeCallbacks(searchRunnable);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                final String query = s.toString().trim();
+
+                // Only search if we have at least 2 characters
+                if (query.length() >= 2) {
+                    // Delay the search to avoid too many API calls while typing
+                    searchRunnable = () -> searchIcd10Codes(query);
+                    handler.postDelayed(searchRunnable, 300); // 300ms delay
+                }
+            }
+        });
+
+        // Set up item click listener
+        editTextICD10.setOnItemClickListener((parent, view, position, id) -> {
+            Icd10SearchResult selectedResult = searchAdapter.getItem(position);
+            if (selectedResult != null) {
+                editTextICD10.setText(selectedResult.getCode());
+            }
+        });
 
         // Set up save button click listener
         saveDiseaseButton.setOnClickListener(v -> {
@@ -107,21 +170,61 @@ public class DoctorPatientsActivity extends BaseActivity {
             @Override
             public void onDeleteDisease(Disease disease) {
                 if (currentPatientId != null && !currentPatientId.isEmpty()) {
+                    // Get current doctor ID from SharedPreferences
+                    SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                    String doctorId = preferences.getString("userId", "");
+
+                    if (doctorId.isEmpty()) {
+                        Snackbar.make(findViewById(android.R.id.content),
+                                "Doctor ID not found!",
+                                Snackbar.LENGTH_SHORT).show();
+                        return;
+                    }
+
                     SQLiteDatabase db = dbHelper.getWritableDatabase();
 
-                    String whereClause = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND "
-                            + DatabaseHelper.COLUMN_DISEASE_ID_FK + "=?";
-                    String[] whereArgs = {currentPatientId, String.valueOf(disease.getDiseaseId())};
-                    int deletedRows = db.delete(DatabaseHelper.TABLE_USER_DISEASES, whereClause, whereArgs);
+                    // First check if the current doctor is the one who added the disease
+                    String checkQuery = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES + 
+                            " WHERE " + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND " +
+                            DatabaseHelper.COLUMN_DISEASE_ID_FK + "=? AND " +
+                            DatabaseHelper.COLUMN_DOCTOR_ID_FK + "=?";
+                    String[] checkArgs = {currentPatientId, String.valueOf(disease.getDiseaseId()), doctorId};
+                    Cursor cursor = db.rawQuery(checkQuery, checkArgs);
 
-                    if (deletedRows > 0) {
-                        Toast.makeText(DoctorPatientsActivity.this, "Disease removed from patient", Toast.LENGTH_SHORT).show();
-                        loadDiseases(currentPatientId);
+                    if (cursor != null && cursor.getCount() > 0) {
+                        cursor.close();
+
+                        // The current doctor added this disease, so they can delete it
+                        String whereClause = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND "
+                                + DatabaseHelper.COLUMN_DISEASE_ID_FK + "=? AND "
+                                + DatabaseHelper.COLUMN_DOCTOR_ID_FK + "=?";
+                        String[] whereArgs = {currentPatientId, String.valueOf(disease.getDiseaseId()), doctorId};
+                        int deletedRows = db.delete(DatabaseHelper.TABLE_USER_DISEASES, whereClause, whereArgs);
+
+                        if (deletedRows > 0) {
+                            Snackbar.make(findViewById(android.R.id.content),
+                                    "Disease removed from the patient",
+                                    Snackbar.LENGTH_SHORT).show();
+                            loadDiseases(currentPatientId);
+                        } else {
+                            Snackbar.make(findViewById(android.R.id.content),
+                                    "Failed to remove disease!",
+                                    Snackbar.LENGTH_SHORT).show();
+                        }
                     } else {
-                        Toast.makeText(DoctorPatientsActivity.this, "Failed to remove disease", Toast.LENGTH_SHORT).show();
+                        if (cursor != null) {
+                            cursor.close();
+                        }
+
+                        // The current doctor did not add this disease, so they cannot delete it
+                        Snackbar.make(findViewById(android.R.id.content),
+                                "You can only delete diseases that you have added!",
+                                Snackbar.LENGTH_SHORT).show();
                     }
                 } else {
-                    Toast.makeText(DoctorPatientsActivity.this, "No patient selected", Toast.LENGTH_SHORT).show();
+                    Snackbar.make(findViewById(android.R.id.content),
+                            "No patient selected!",
+                            Snackbar.LENGTH_SHORT).show();
                 }
             }
         });
@@ -139,7 +242,9 @@ public class DoctorPatientsActivity extends BaseActivity {
                     intent.putExtra("patient_id", currentPatientId);
                     startActivity(intent);
                 } else {
-                    Toast.makeText(DoctorPatientsActivity.this, "No patient selected", Toast.LENGTH_SHORT).show();
+                    Snackbar.make(findViewById(android.R.id.content),
+                            "No patient selected!",
+                            Snackbar.LENGTH_SHORT).show();
                 }
             }
         });
@@ -153,7 +258,7 @@ public class DoctorPatientsActivity extends BaseActivity {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
 
         // Get current doctor ID
-        String doctorId = preferences.getString("userId", "");
+        //String doctorId = preferences.getString("userId", "");
 
         // Get patients for this doctor
         patientsList = dbHelper.getPatientsForDoctor(doctorId);
@@ -185,7 +290,9 @@ public class DoctorPatientsActivity extends BaseActivity {
                 // Display patient information
                 displayPatientInfo(patient);
             } else {
-                Toast.makeText(this, "Patient information not found", Toast.LENGTH_SHORT).show();
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Patient information not found!",
+                        Snackbar.LENGTH_SHORT).show();
 
                 // If patient not found and we have other patients, select the first one
                 if (patientsList != null && !patientsList.isEmpty()) {
@@ -196,7 +303,9 @@ public class DoctorPatientsActivity extends BaseActivity {
                 }
             }
         } else {
-            Toast.makeText(this, "No patients available", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content),
+                    "No patients available!",
+                    Snackbar.LENGTH_SHORT).show();
         }
     }
 
@@ -205,7 +314,9 @@ public class DoctorPatientsActivity extends BaseActivity {
         patientSelectorLayout.setVisibility(View.GONE);
 
         if (patientsList == null || patientsList.isEmpty()) {
-            Toast.makeText(this, "No patients assigned to you", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content),
+                    "No patients assigned to you!",
+                    Snackbar.LENGTH_SHORT).show();
             return;
         }
 
@@ -274,6 +385,17 @@ public class DoctorPatientsActivity extends BaseActivity {
             TextView patientTitle = findViewById(R.id.patient_title);
             patientTitle.setText(profile.getName());
 
+            // Make profile card clickable
+            View profileCard = findViewById(R.id.profile_card);
+            profileCard.setOnClickListener(v -> {
+                // Navigate to ProfileSetupActivity with patient information
+                Intent intent = new Intent(DoctorPatientsActivity.this, ProfileSetupActivity.class);
+                intent.putExtra("view_patient_profile", true);
+                intent.putExtra("edit_patient_profile", true); // Allow editing the patient profile
+                intent.putExtra("patient_id", patient.getUserId());
+                startActivity(intent);
+            });
+
             // Load diseases for this patient
             loadDiseases(patient.getUserId());
         }
@@ -310,6 +432,27 @@ public class DoctorPatientsActivity extends BaseActivity {
                 Snackbar.make(findViewById(android.R.id.content), 
                         "The patient already has this disease!", Snackbar.LENGTH_SHORT).show();
             } else {
+                // Get current doctor ID from SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
+                String doctorId = prefs.getString("userId", "");
+
+                // Check if the ICD-10 code is valid for the doctor's specialty
+                if (!doctorId.isEmpty()) {
+                    UserProfile doctorProfile = dbHelper.getUserProfile(doctorId);
+                    String specialty = doctorProfile.getSpecialty();
+
+                    // Check if the ICD-10 code is valid for the doctor's specialty
+                    if (!ICD10SpecialtyMapper.isCodeValidForSpecialty(icd10Code, specialty)) {
+                        String validCodesDescription = ICD10SpecialtyMapper.getValidCodesDescription(specialty);
+                        Snackbar.make(
+                                findViewById(android.R.id.content), 
+                                "This ICD-10 code is not valid for your specialty (" + specialty + "). ",
+                                Snackbar.LENGTH_LONG
+                        ).show();
+                        return;
+                    }
+                }
+
                 isValidIcd10Code(icd10Code, (isValid, disease) -> {
                     if (!isValid) {
                         Snackbar.make(findViewById(android.R.id.content), 
@@ -325,6 +468,13 @@ public class DoctorPatientsActivity extends BaseActivity {
                         ContentValues userDiseaseValues = new ContentValues();
                         userDiseaseValues.put(DatabaseHelper.COLUMN_USER_ID_FK_DISEASE, currentPatientId);
                         userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_ID_FK, newRowId);
+                        if (!doctorId.isEmpty()) {
+                            userDiseaseValues.put(DatabaseHelper.COLUMN_DOCTOR_ID_FK, doctorId);
+                        }
+
+                        // Add current timestamp
+                        String currentTimestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+                        userDiseaseValues.put("diagnosis_date", currentTimestamp);
 
                         final Dialog dialog = new Dialog(DoctorPatientsActivity.this);
                         dialog.setContentView(R.layout.custom_dialog);
@@ -338,10 +488,20 @@ public class DoctorPatientsActivity extends BaseActivity {
 
                         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                         Map<String, ?> allEntries = preferences.getAll();
-                        for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-                            String[] key = entry.getKey().split("#");
-                            if (Objects.equals(key[0], "Disease") && Objects.equals(key[1], icd10Code)) {
-                                exists = true;
+                        if (allEntries != null) {
+                            for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
+                                try {
+                                    String entryKey = entry.getKey();
+                                    if (entryKey == null) continue;
+
+                                    String[] key = entryKey.split("#");
+                                    if (key.length >= 2 && Objects.equals(key[0], "Disease") && Objects.equals(key[1], icd10Code)) {
+                                        exists = true;
+                                        break;
+                                    }
+                                } catch (Exception e) {
+                                    Log.e("DoctorPatientsActivity", "Error processing entry", e);
+                                }
                             }
                         }
 
@@ -387,7 +547,7 @@ public class DoctorPatientsActivity extends BaseActivity {
                                     handler.post(() -> {
                                         dialog.dismiss();
                                         loadDiseases(currentPatientId);
-                                        editTextICD10.getText().clear();
+                                        editTextICD10.setText("");
                                         Snackbar.make(findViewById(android.R.id.content), 
                                                 "Disease added successfully", Snackbar.LENGTH_SHORT).show();
                                     });
@@ -415,6 +575,67 @@ public class DoctorPatientsActivity extends BaseActivity {
 
     public interface Icd10CodeValidationCallback {
         void onResultReceived(boolean isValid, String diseaseName);
+    }
+
+    /**
+     * Search for ICD-10 codes based on the user's input
+     * @param query The search query
+     */
+    private void searchIcd10Codes(String query) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Handler handler = new Handler(Looper.getMainLooper());
+
+        executor.execute(() -> {
+            try {
+                String url = "https://clinicaltables.nlm.nih.gov/api/icd10cm/v3/search?sf=code,name&terms=" + query;
+                Request request = new Request.Builder().url(url).get().build();
+
+                try (Response response = client.newCall(request).execute()) {
+                    if (!response.isSuccessful()) {
+                        throw new IOException("Unexpected code " + response);
+                    }
+
+                    String resultStr = Objects.requireNonNull(response.body()).string();
+                    JSONArray result = new JSONArray(resultStr);
+
+                    // Check if the response indicates at least one result was found
+                    if (result.length() >= 4 && result.getInt(0) > 0) {
+                        // Clear previous results
+                        searchResults.clear();
+
+                        // Get the codes array
+                        JSONArray codes = result.getJSONArray(1);
+
+                        // Get the details array
+                        JSONArray details = result.getJSONArray(3);
+
+                        // Limit to 5 results
+                        int resultCount = Math.min(5, codes.length());
+
+                        for (int i = 0; i < resultCount; i++) {
+                            String code = codes.getString(i);
+                            JSONArray detailItem = details.getJSONArray(i);
+                            String name = detailItem.getString(1);
+
+                            searchResults.add(new Icd10SearchResult(code, name));
+                        }
+
+                        // Update the adapter on the main thread
+                        handler.post(() -> {
+                            searchAdapter.updateResults(searchResults);
+                            searchAdapter.notifyDataSetChanged();
+
+                            // Show the dropdown if it's not already showing
+                            if (!editTextICD10.isPopupShowing()) {
+                                editTextICD10.showDropDown();
+                            }
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error searching for ICD-10 codes", e);
+            }
+        });
     }
 
     public void isValidIcd10Code(String code, Icd10CodeValidationCallback callback) {
@@ -486,41 +707,10 @@ public class DoctorPatientsActivity extends BaseActivity {
     private void loadDiseases(String patientId) {
         diseasesList.clear();
 
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        // Use the new method to get all diseases for the patient, including those added by all doctors
+        List<Disease> diseases = dbHelper.getDiseasesForPatient(patientId);
+        diseasesList.addAll(diseases);
 
-        String selection = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=?";
-        String[] selectionArgs = {patientId};
-        Cursor cursor = db.query(
-                DatabaseHelper.TABLE_USER_DISEASES, null, selection, selectionArgs, null, null, null);
-
-        if (cursor != null) {
-            while (cursor.moveToNext()) {
-                @SuppressLint("Range")
-                int diseaseId = cursor.getInt(cursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_ID_FK));
-
-                String diseaseSelection = DatabaseHelper.COLUMN_DISEASE_ID + "=?";
-                String[] diseaseSelectionArgs = {String.valueOf(diseaseId)};
-                Cursor diseaseCursor = db.query(DatabaseHelper.TABLE_DISEASES, null, diseaseSelection,
-                        diseaseSelectionArgs, null, null, null);
-
-                if (diseaseCursor != null && diseaseCursor.moveToFirst()) {
-                    @SuppressLint("Range")
-                    String description = diseaseCursor.getString(
-                            diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION));
-                    @SuppressLint("Range")
-                    String icd10 =
-                            diseaseCursor.getString(diseaseCursor.getColumnIndex(DatabaseHelper.COLUMN_ICD10));
-
-                    Disease disease = new Disease(diseaseId, description, icd10);
-                    diseasesList.add(disease);
-                }
-                if (diseaseCursor != null) {
-                    diseaseCursor.close();
-                }
-            }
-            cursor.close();
-
-            diseaseAdapter.notifyDataSetChanged();
-        }
+        diseaseAdapter.notifyDataSetChanged();
     }
 }

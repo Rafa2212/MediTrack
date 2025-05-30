@@ -4,10 +4,6 @@
             android:icon="@drawable/ic_dashboard"
             android:title="@string/dashboard" />
     <item
-            android:id="@+id/menu_profile"
-            android:icon="@drawable/ic_profile"
-            android:title="@string/profile" />
-    <item
             android:id="@+id/menu_wkly_report"
             android:icon="@drawable/ic_wkly_report"
             android:title="@string/wkyl_report" />

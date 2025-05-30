@@ -63,6 +63,20 @@
                 app:layout_constraintStart_toStartOf="@id/disease_recyclerview"
                 app:layout_constraintEnd_toEndOf="@id/disease_recyclerview"/>
 
+        <TextView
+                android:id="@+id/assigned_doctors_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="25dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/disease_subtext"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_navigation"
             android:layout_width="0dp"

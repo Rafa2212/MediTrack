@@ -37,12 +37,15 @@
 
         <activity android:name=".ProfileSetupActivity"/>
 
+        <activity android:name=".BodyTypeQuizActivity"/>
+
         <activity android:name=".AddDiseaseActivity"/>
         <activity android:name=".DashboardActivity"/>
         <activity android:name=".WeeklyReportActivity"/>
         <activity android:name=".DoctorDashboardActivity"/>
         <activity android:name=".DoctorPatientsActivity"/>
         <activity android:name=".MedicalReportsActivity"/>
+        <activity android:name=".CreateDoctorActivity"/>
 
     </application>
 </manifest>

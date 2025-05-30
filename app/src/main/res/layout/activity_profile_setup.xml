@@ -30,15 +30,34 @@
                 app:layout_constraintTop_toTopOf="parent"/>
 
         <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/editTextNameLayout"
+                android:id="@+id/editTextCnpLayout"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="25dp"
-                android:hint="@string/name"
+                android:hint="CNP"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
                 app:layout_constraintTop_toBottomOf="@+id/image"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/editTextCnp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/editTextNameLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/name"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextCnpLayout"
                 app:layout_constraintStart_toStartOf="parent">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -259,6 +278,101 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <LinearLayout
+                android:id="@+id/credentialsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/editTextCholesterolLDLLayout"
+                android:layout_marginTop="16dp">
+
+            <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Generated Credentials"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="@color/logoColorRed"/>
+
+            <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Username: "
+                        android:textStyle="bold"
+                        android:textSize="14sp"/>
+
+                <TextView
+                        android:id="@+id/textViewGeneratedUsername"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"/>
+            </LinearLayout>
+
+            <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp">
+
+                <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Password: "
+                        android:textStyle="bold"
+                        android:textSize="14sp"/>
+
+                <TextView
+                        android:id="@+id/textViewGeneratedPassword"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+                android:id="@+id/bodyTypeContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/credentialsContainer"
+                android:layout_marginTop="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonBodyTypeQuiz"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="Body Type"
+                    android:textColor="@color/black"
+                    android:textSize="10sp"
+                    android:minWidth="100dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:backgroundTint="@color/logoColor"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
+
+            <TextView
+                    android:id="@+id/textViewBodyType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/logoColorRed"/>
+
+        </LinearLayout>
+
         <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonSubmitProfile"
                 android:layout_width="200dp"
@@ -268,7 +382,7 @@
                 android:backgroundTint="@color/logoColor"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/editTextCholesterolLDLLayout"
+                app:layout_constraintTop_toBottomOf="@+id/bodyTypeContainer"
                 android:layout_marginTop="16dp"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

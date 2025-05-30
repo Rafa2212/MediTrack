@@ -22,6 +22,7 @@ import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.snackbar.Snackbar;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -78,15 +79,21 @@ public class MedicalReportsActivity extends BaseActivity {
                     }
                 } catch (Exception e) {
                     Log.e("MedicalReportsActivity", "Error loading medical reports", e);
-                    Toast.makeText(this, "Error loading medical reports", Toast.LENGTH_SHORT).show();
+                    Snackbar.make(findViewById(android.R.id.content),
+                            "Error loading medical reports!",
+                            Snackbar.LENGTH_SHORT).show();
                 }
 
             } else {
-                Toast.makeText(this, "Patient information not found", Toast.LENGTH_SHORT).show();
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Patient information not found!",
+                        Snackbar.LENGTH_SHORT).show();
                 finish();
             }
         } else {
-            Toast.makeText(this, "No patient selected", Toast.LENGTH_SHORT).show();
+            Snackbar.make(findViewById(android.R.id.content),
+                    "No patient selected!",
+                    Snackbar.LENGTH_SHORT).show();
             finish();
         }
 
@@ -150,8 +157,20 @@ public class MedicalReportsActivity extends BaseActivity {
                 formattedDate = report.getReportDate(); // Fallback to original string if parsing fails
             }
 
+            // Get doctor information
+            String doctorName = "Unknown Doctor";
+            String doctorSpecialty = "";
+            String doctorId = report.getDoctorId();
+            if (doctorId != null && !doctorId.isEmpty()) {
+                User doctor = dbHelper.getUser(doctorId);
+                if (doctor != null && doctor.getUserProfile() != null) {
+                    doctorName = doctor.getUserProfile().getName();
+                    doctorSpecialty = doctor.getUserProfile().getSpecialty();
+                }
+            }
+
             holder.titleTextView.setText("Medical Report");
-            holder.dateTextView.setText(formattedDate);
+            holder.dateTextView.setText("Logged on: " + formattedDate);
 
             holder.itemView.setOnClickListener(v -> {
                 try {
@@ -173,11 +192,15 @@ public class MedicalReportsActivity extends BaseActivity {
                         startActivity(intent);
                     } else {
                         Log.e("MedicalReportsActivity", "File does not exist at path: " + file.getAbsolutePath());
-                        Toast.makeText(MedicalReportsActivity.this, "PDF file not found", Toast.LENGTH_SHORT).show();
+                        Snackbar.make(findViewById(android.R.id.content),
+                                "PDF file not found!",
+                                Snackbar.LENGTH_SHORT).show();
                     }
                 } catch (Exception e) {
                     Log.e("MedicalReportsActivity", "Error opening PDF file: " + e.getMessage(), e);
-                    Toast.makeText(MedicalReportsActivity.this, "Error opening PDF file", Toast.LENGTH_SHORT).show();
+                    Snackbar.make(findViewById(android.R.id.content),
+                            "Error opening PDF file!",
+                            Snackbar.LENGTH_SHORT).show();
                 }
             });
         }
