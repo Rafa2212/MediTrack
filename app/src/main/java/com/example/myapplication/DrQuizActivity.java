@@ -1,15 +1,14 @@
 package com.example.myapplication;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -21,7 +20,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class BodyTypeQuizActivity extends AppCompatActivity {
+/**
+ * Activity that presents a quiz to determine the user's body type.
+ * The quiz consists of multiple questions with three possible answers each.
+ * Based on the user's answers, the activity calculates and saves the user's body type.
+ */
+public class DrQuizActivity extends AppCompatActivity {
 
     private TextView textViewQuestionNumber;
     private TextView textViewQuestion;
@@ -35,14 +39,22 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
 
     private List<QuizQuestion> questions;
     private int currentQuestionIndex = 0;
-    private Map<Integer, String> userAnswers = new HashMap<>();
+    private final Map<Integer, String> userAnswers = new HashMap<>();
 
+    /**
+     * Initializes the activity, sets up UI components, and configures event listeners.
+     * This method is called when the activity is starting.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously
+     *                           being shut down, this Bundle contains the data it most
+     *                           recently supplied in onSaveInstanceState(Bundle).
+     *                           Otherwise it is null.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_body_type_quiz);
 
-        // Initialize UI components
         textViewQuestionNumber = findViewById(R.id.textViewQuestionNumber);
         textViewQuestion = findViewById(R.id.textViewQuestion);
         radioGroupAnswers = findViewById(R.id.radioGroupAnswers);
@@ -53,13 +65,10 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         buttonNext = findViewById(R.id.buttonNext);
         buttonSubmitQuiz = findViewById(R.id.buttonSubmitQuiz);
 
-        // Initialize questions
         initializeQuestions();
 
-        // Display first question
         displayQuestion(currentQuestionIndex);
 
-        // Set up button click listeners
         buttonPrevious.setOnClickListener(v -> {
             saveCurrentAnswer();
             if (currentQuestionIndex > 0) {
@@ -93,11 +102,9 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             String bodyType = determineBodyType();
             saveBodyType(bodyType);
 
-            // Show result and return to profile setup
-            Snackbar.make(findViewById(android.R.id.content), 
+            Snackbar.make(findViewById(android.R.id.content),
                     "Your body type is: " + bodyType, Snackbar.LENGTH_LONG).show();
 
-            // Delay to allow user to read the result
             findViewById(android.R.id.content).postDelayed(() -> {
                 Intent intent = new Intent();
                 intent.putExtra("bodyType", bodyType);
@@ -107,6 +114,11 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Initializes the list of quiz questions.
+     * Creates a set of predefined questions about body characteristics
+     * that will be used to determine the user's body type.
+     */
     private void initializeQuestions() {
         questions = new ArrayList<>();
 
@@ -181,6 +193,13 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         ));
     }
 
+    /**
+     * Displays a specific question and its answer options on the screen.
+     * Also restores any previously selected answer for this question.
+     *
+     * @param index The index of the question to display
+     */
+    @SuppressLint("SetTextI18n")
     private void displayQuestion(int index) {
         QuizQuestion question = questions.get(index);
         textViewQuestionNumber.setText("Question " + (index + 1) + "/" + questions.size());
@@ -189,10 +208,8 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         radioButtonB.setText(question.getOptionB());
         radioButtonC.setText(question.getOptionC());
 
-        // Clear selection
         radioGroupAnswers.clearCheck();
 
-        // Set previous answer if exists
         if (userAnswers.containsKey(index)) {
             String answer = userAnswers.get(index);
             if ("A".equals(answer)) {
@@ -205,6 +222,10 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Saves the user's selected answer for the current question.
+     * The answer is stored in the userAnswers map with the question index as the key.
+     */
     private void saveCurrentAnswer() {
         int selectedId = radioGroupAnswers.getCheckedRadioButtonId();
         if (selectedId != -1) {
@@ -218,6 +239,12 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Updates the navigation buttons based on the current question index.
+     * - Enables/disables the previous button based on whether there are previous questions
+     * - Shows/hides the next and submit buttons based on whether this is the last question
+     * - Adjusts the layout parameters of the buttons accordingly
+     */
     private void updateNavigationButtons() {
         buttonPrevious.setEnabled(currentQuestionIndex > 0);
 
@@ -225,7 +252,6 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             buttonNext.setVisibility(View.GONE);
             buttonSubmitQuiz.setVisibility(View.VISIBLE);
 
-            // On the last question, make the Previous button not extend to full width
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -236,7 +262,6 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             buttonNext.setVisibility(View.VISIBLE);
             buttonSubmitQuiz.setVisibility(View.GONE);
 
-            // Reset Previous button layout params for other questions
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -247,6 +272,13 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Determines the user's body type based on their quiz answers.
+     * Counts the number of A, B, and C answers and calculates the predominant body type.
+     * 
+     * @return A string representing the user's body type (Ectomorph, Mesomorph, Endomorph, 
+     *         or a combination of these types)
+     */
     private String determineBodyType() {
         int countA = 0;
         int countB = 0;
@@ -262,7 +294,6 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             }
         }
 
-        // Determine primary body type
         String primaryType;
         if (countA > countB && countA > countC) {
             primaryType = "Ectomorph";
@@ -274,17 +305,23 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             primaryType = "Ecto-Mesomorph";
         } else if (countB == countC && countB > countA) {
             primaryType = "Meso-Endomorph";
-        } else if (countA == countC && countA > countB) {
+        } else if (countA > countB) {
             primaryType = "Ecto-Endomorph";
         } else {
-            primaryType = "Balanced"; // All three are equal
+            primaryType = "Balanced";
         }
 
         return primaryType;
     }
 
+    /**
+     * Saves the determined body type to the user's profile in the database.
+     * Retrieves the user ID from shared preferences, gets the user's profile,
+     * updates the body type, and saves the updated profile.
+     *
+     * @param bodyType The determined body type to save
+     */
     private void saveBodyType(String bodyType) {
-        // Get current user ID
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "");
 
@@ -299,13 +336,24 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
         }
     }
 
-    // Inner class to represent a quiz question
+    /**
+     * Inner class representing a quiz question with three possible answers.
+     * Each question has a question text and three answer options (A, B, and C).
+     */
     private static class QuizQuestion {
         private final String question;
         private final String optionA;
         private final String optionB;
         private final String optionC;
 
+        /**
+         * Constructs a new QuizQuestion with the specified question text and answer options.
+         *
+         * @param question The text of the question
+         * @param optionA The text for option A
+         * @param optionB The text for option B
+         * @param optionC The text for option C
+         */
         public QuizQuestion(String question, String optionA, String optionB, String optionC) {
             this.question = question;
             this.optionA = optionA;
@@ -313,18 +361,38 @@ public class BodyTypeQuizActivity extends AppCompatActivity {
             this.optionC = optionC;
         }
 
+        /**
+         * Gets the question text.
+         *
+         * @return The question text
+         */
         public String getQuestion() {
             return question;
         }
 
+        /**
+         * Gets the text for option A.
+         *
+         * @return The text for option A
+         */
         public String getOptionA() {
             return optionA;
         }
 
+        /**
+         * Gets the text for option B.
+         *
+         * @return The text for option B
+         */
         public String getOptionB() {
             return optionB;
         }
 
+        /**
+         * Gets the text for option C.
+         *
+         * @return The text for option C
+         */
         public String getOptionC() {
             return optionC;
         }

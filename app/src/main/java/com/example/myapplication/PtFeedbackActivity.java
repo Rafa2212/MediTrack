@@ -28,13 +28,40 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class WeeklyReportActivity extends BaseActivity {
+/**
+ * Activity for generating and submitting weekly health reports.
+ * 
+ * This activity allows patients to:
+ * 1. Submit weekly health feedback about their general health and specific conditions
+ * 2. View their previously generated health reports
+ * 3. Track when they can submit their next report
+ * 
+ * The activity integrates with Fitbit API to collect health metrics and uses OpenAI
+ * to generate comprehensive health reports based on the collected data and patient feedback.
+ * These reports are saved as PDF files and can be viewed by both the patient and their doctors.
+ */
+public class PtFeedbackActivity extends BaseActivity {
+    /**
+     * Initializes the activity, sets up UI components, and configures the weekly report submission functionality.
+     * 
+     * This method:
+     * 1. Sets up the bottom navigation
+     * 2. Initializes input fields for general health and BMI assessment
+     * 3. Dynamically creates input fields for each of the patient's diseases
+     * 4. Configures the submit report button with validation and submission logic
+     * 5. Sets up the view last report button if a report exists
+     * 6. Displays and configures the timer showing when the next report can be submitted
+     * 7. Handles notification logic for report availability
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously being shut down,
+     *                          this contains the data it most recently supplied in onSaveInstanceState(Bundle).
+     *                          Otherwise it is null.
+     */
     @SuppressLint({"WrongConstant", "SetTextI18n"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,13 +92,8 @@ public class WeeklyReportActivity extends BaseActivity {
         editTextBMIQ.setAdapter(stateAdapter);
         editTextBMIQ.setThreshold(1);
 
-        SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-
-        // Get diseases for the current patient from the database
-        // This will only include diseases that have not been deleted
         List<Disease> diseasesList = dbHelper.getDiseasesForPatient(curr_user);
 
-        // Convert to ArrayList if needed
         if (!(diseasesList instanceof ArrayList)) {
             diseasesList = new ArrayList<>(diseasesList);
         }
@@ -88,26 +110,20 @@ public class WeeklyReportActivity extends BaseActivity {
         // Check if user can submit a report
         if (user != null && user.getUserProfile() != null) {
             UserProfile userProfile = user.getUserProfile();
-            boolean canSubmitReport = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
 
-            // First check if there's a report in the database
             MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(curr_user);
 
             if (latestReport != null && latestReport.getReportPath() != null && !latestReport.getReportPath().isEmpty()) {
-                // Check if the PDF file exists
                 File file = new File(latestReport.getReportPath());
                 if (file.exists()) {
-                    // Show the button to view the last report
                     buttonViewLastReport.setVisibility(View.VISIBLE);
-
-                    // Set up the button click listener
                     buttonViewLastReport.setOnClickListener(viewReportBtn -> {
                         try {
                             // Log the report path for debugging
                             Log.d("WeeklyReportActivity", "Report path: " + latestReport.getReportPath());
                             Log.d("WeeklyReportActivity", "File exists at path: " + file.getAbsolutePath());
 
-                            Uri uri = FileProvider.getUriForFile(WeeklyReportActivity.this,
+                            Uri uri = FileProvider.getUriForFile(PtFeedbackActivity.this,
                                     getPackageName() + ".provider", file);
 
                             Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -131,26 +147,21 @@ public class WeeklyReportActivity extends BaseActivity {
                 buttonViewLastReport.setVisibility(View.GONE);
             }
 
-            // Calculate time remaining until next report
             String timeRemaining = calculateTimeRemaining(userProfile.getLastMedicalReport());
             textViewTimer.setText(getString(R.string.next_report_time, timeRemaining));
             textViewTimer.setVisibility(View.VISIBLE);
 
-            // Set color based on availability
             if (timeRemaining.equals("now")) {
                 textViewTimer.setTextColor(getResources().getColor(R.color.green));
                 buttonSubmitReport.setEnabled(true);
 
-                // Check if we need to create a notification for the timer expiration
                 SharedPreferences notificationPrefs = getSharedPreferences("NOTIFICATION_PREFS", MODE_PRIVATE);
                 boolean timerExpirationNotified = notificationPrefs.getBoolean("timer_expiration_notified_" + curr_user, false);
 
                 if (!timerExpirationNotified) {
-                    // Create a notification for the timer expiration
                     String message = "Your weekly report is now available to submit. Please log your feedback.";
                     dbHelper.saveNotification(curr_user, message, "timer_expired");
 
-                    // Mark that we've notified the user about this timer expiration
                     SharedPreferences.Editor editor = notificationPrefs.edit();
                     editor.putBoolean("timer_expiration_notified_" + curr_user, true);
                     editor.apply();
@@ -159,7 +170,6 @@ public class WeeklyReportActivity extends BaseActivity {
                 textViewTimer.setTextColor(getResources().getColor(R.color.logoColorRed));
                 buttonSubmitReport.setEnabled(false);
 
-                // Reset the notification flag when the timer is not expired
                 SharedPreferences notificationPrefs = getSharedPreferences("NOTIFICATION_PREFS", MODE_PRIVATE);
                 SharedPreferences.Editor editor = notificationPrefs.edit();
                 editor.putBoolean("timer_expiration_notified_" + curr_user, false);
@@ -172,7 +182,7 @@ public class WeeklyReportActivity extends BaseActivity {
             String BMIQ = editTextBMIQ.getText().toString();
             List<String> lstString = getDiseasesStringList(diseasesLinearLayout);
             boolean areAllFieldsCompleted = true;
-            if (lstString != null && !lstString.isEmpty()) {
+            if (!lstString.isEmpty()) {
                 Object[] stringArray = lstString.toArray();
                 for (int i = 0; i < stringArray.length; i++){
                     if (lstString.get(i).isEmpty()){
@@ -190,7 +200,7 @@ public class WeeklyReportActivity extends BaseActivity {
                         Snackbar.LENGTH_SHORT)
                 .show();
             } else {
-                final Dialog dialog = new Dialog(WeeklyReportActivity.this);
+                final Dialog dialog = new Dialog(PtFeedbackActivity.this);
 
                 dialog.setContentView(R.layout.custom_dialog);
 
@@ -234,7 +244,7 @@ public class WeeklyReportActivity extends BaseActivity {
 
                             ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
                                     .model("gpt-3.5-turbo")
-                                    .messages(Arrays.asList(
+                                    .messages(Collections.singletonList(
                                             new ChatMessage("user", fullPrompt)
                                     ))
                                     .maxTokens(2000)
@@ -247,23 +257,16 @@ public class WeeklyReportActivity extends BaseActivity {
                             if (result != null && result.getChoices() != null && !result.getChoices().isEmpty()) {
                                 weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
                             } else {
-                                // Handle the case where result or choices is null or empty
                                 weeklyReportResponse = "Error generating report. Please try again later.";
                                 Log.e("WeeklyReportActivity", "OpenAI API returned null or empty result");
                             }
 
-                            // Get current timestamp for the report
                             String reportDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
 
-                            // Create PDF with patient ID for unique filename
                             PDFGeneration pdfGeneration = new PDFGeneration(getApplicationContext());
-                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse, curr_user);
-
-                            // Don't open PDF for patients, just save it
-                            // The PDF will be available for doctors to view in MedicalReportsActivity
+                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse, curr_user, userProfile.getName());
 
                             handler.post(() -> {
-                                // Save the report in the database
                                 long reportId = dbHelper.saveMedicalReport(
                                     curr_user,
                                     "",
@@ -273,15 +276,11 @@ public class WeeklyReportActivity extends BaseActivity {
                                 );
 
                                 if (reportId != -1) {
-                                    // Update the lastMedicalReport timestamp only after all data is processed and saved
                                     userProfile.setLastMedicalReport(reportDate);
                                     dbHelper.insertOrUpdateProfile(curr_user, userProfile);
 
-                                    // Create notifications for doctors assigned to this patient
-                                    // Get all doctors assigned to this patient
                                     List<User> doctors = dbHelper.getDoctorsForPatient(curr_user);
                                     if (doctors != null && !doctors.isEmpty()) {
-                                        // Create a notification for each doctor
                                         for (User doctor : doctors) {
                                             String patientName = userProfile.getName();
                                             String message = patientName + " has submitted their weekly feedback. A new medical report is available.";
@@ -289,39 +288,31 @@ public class WeeklyReportActivity extends BaseActivity {
                                         }
                                     }
 
-                                    // Disable the submit button after successful submission
                                     Button submitButton = findViewById(R.id.buttonSubmitReport);
                                     submitButton.setEnabled(false);
 
-                                    // Show the timer for next available report
                                     TextView timerView = findViewById(R.id.textViewTimer);
                                     String timeRemaining = calculateTimeRemaining(userProfile.getLastMedicalReport());
                                     timerView.setText(getString(R.string.next_report_time, timeRemaining));
                                     timerView.setVisibility(View.VISIBLE);
 
-                                    // Set color based on availability (always red after submitting a report)
                                     timerView.setTextColor(getResources().getColor(R.color.logoColorRed));
 
-                                    // Make the View Last Report button visible
                                     Button viewLastReportButton = findViewById(R.id.buttonViewLastReport);
                                     viewLastReportButton.setVisibility(View.VISIBLE);
 
-                                    // Set up the button click listener
                                     viewLastReportButton.setOnClickListener(viewReportBtn -> {
                                         try {
-                                            // Get the latest report from the database
                                             MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(curr_user);
 
                                             if (latestReport != null && latestReport.getReportPath() != null && !latestReport.getReportPath().isEmpty()) {
-                                                // Log the report path for debugging
                                                 Log.d("WeeklyReportActivity", "Report path: " + latestReport.getReportPath());
 
-                                                // Open the PDF file using the path from the database
                                                 File file = new File(latestReport.getReportPath());
                                                 if (file.exists()) {
                                                     Log.d("WeeklyReportActivity", "File exists at path: " + file.getAbsolutePath());
 
-                                                    Uri uri = FileProvider.getUriForFile(WeeklyReportActivity.this,
+                                                    Uri uri = FileProvider.getUriForFile(PtFeedbackActivity.this,
                                                             getPackageName() + ".provider", file);
 
                                                     Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -353,16 +344,13 @@ public class WeeklyReportActivity extends BaseActivity {
                                             "Weekly feedback logged successfully. Your doctor will be able to view your report.", 
                                             Snackbar.LENGTH_LONG).show();
                                 } else {
-                                    // Error saving report to database
                                     Snackbar.make(findViewById(android.R.id.content),
                                             "Error saving report to database. Please try again.",
                                             Snackbar.LENGTH_LONG).show();
 
-                                    // Make sure the View Last Report button is not visible
                                     Button viewLastReportButton = findViewById(R.id.buttonViewLastReport);
                                     viewLastReportButton.setVisibility(View.GONE);
 
-                                    // Re-enable the submit button
                                     Button submitButton = findViewById(R.id.buttonSubmitReport);
                                     submitButton.setEnabled(true);
                                 }
@@ -373,16 +361,13 @@ public class WeeklyReportActivity extends BaseActivity {
                         } catch (Exception e) {
                             dialog.dismiss();
                             handler.post(() -> {
-                                // Show error message
                                 Snackbar.make(findViewById(android.R.id.content),
                                         "Saving failed! Try again later!", Snackbar.LENGTH_SHORT)
                                         .show();
 
-                                // Make sure the View Last Report button is not visible
                                 Button viewLastReportButton = findViewById(R.id.buttonViewLastReport);
                                 viewLastReportButton.setVisibility(View.GONE);
 
-                                // Re-enable the submit button
                                 Button submitButton = findViewById(R.id.buttonSubmitReport);
                                 submitButton.setEnabled(true);
                             });
@@ -405,6 +390,16 @@ public class WeeklyReportActivity extends BaseActivity {
         }
     }
 
+    /**
+     * Extracts the user's input about their diseases from the UI components.
+     * 
+     * This method iterates through all child views of the provided LinearLayout,
+     * finds TextInputLayout components containing AutoCompleteTextView elements,
+     * and collects the text input from each one into a list.
+     *
+     * @param parentLayout The LinearLayout containing disease assessment input fields
+     * @return A List of Strings containing the user's assessment of each disease state
+     */
     private List<String> getDiseasesStringList(LinearLayout parentLayout) {
 
         List<String> lstString = new ArrayList<>();
@@ -425,6 +420,26 @@ public class WeeklyReportActivity extends BaseActivity {
         return lstString;
     }
 
+    /**
+     * Generates a detailed prompt for the OpenAI API to create a comprehensive medical report.
+     * 
+     * This method constructs a structured prompt containing:
+     * 1. Patient information and health metrics
+     * 2. Fitbit activity data
+     * 3. Sleep data
+     * 4. Cardiovascular metrics
+     * 5. Patient's self-assessment of their health
+     * 6. Detailed instructions for report structure and formatting
+     *
+     * The prompt is formatted using String.format with values from the user's profile and input.
+     *
+     * @param userProfile The user's profile containing health metrics and personal information
+     * @param BMI The calculated Body Mass Index value
+     * @param firstQ The user's response to the general health self-assessment question
+     * @param BMIQ The user's response to the BMI self-assessment question
+     * @param diseasesStates A list of the user's assessments of their disease states
+     * @return A formatted string prompt for the OpenAI API
+     */
     public String generatePrompt(UserProfile userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates) {
         @SuppressLint("DefaultLocale") String prompt = String.format(
                 "You are creating a comprehensive medical report PDF for a patient based on their Fitbit data and health metrics. " +
@@ -612,8 +627,22 @@ public class WeeklyReportActivity extends BaseActivity {
         return prompt;
     }
 
+    /**
+     * Determines if a user can submit a new weekly report based on the date of their last report.
+     * 
+     * This method checks two conditions:
+     * 1. If there's a report in the database from the last week
+     * 2. If the provided date string (from user profile) is more than a week old
+     *
+     * If either condition indicates the user hasn't submitted a report in the last week,
+     * the method returns true, allowing the user to submit a new report.
+     *
+     * @param dateStr The date string of the user's last medical report in format "yyyy-MM-dd'T'HH:mm:ss"
+     * @return true if the user can submit a new report (last report is older than a week or doesn't exist),
+     *         false if the user has already submitted a report within the last week
+     */
     private boolean isDateOlderThanAWeek(String dateStr) {
-        // First, check if there's a report in the database from the last week
+        // Check if there's a report in the database from the last week
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "");
         if (!userId.isEmpty()) {
@@ -626,7 +655,6 @@ public class WeeklyReportActivity extends BaseActivity {
                     LocalDateTime reportDate = LocalDateTime.parse(latestReport.getReportDate(), formatter);
                     LocalDateTime oneWeekAgo = LocalDateTime.now().minusWeeks(1);
 
-                    // If the latest report is less than a week old, the user can't submit a new report
                     if (reportDate.isAfter(oneWeekAgo)) {
                         return false;
                     }
@@ -636,7 +664,6 @@ public class WeeklyReportActivity extends BaseActivity {
             }
         }
 
-        // If no recent report in the database, check the lastMedicalReport timestamp in the UserProfile
         if (dateStr == null || dateStr.isEmpty()) {
             return true;
         }
@@ -652,8 +679,20 @@ public class WeeklyReportActivity extends BaseActivity {
         }
     }
 
+    /**
+     * Calculates and formats the time remaining until a user can submit their next weekly report.
+     * 
+     * This method:
+     * 1. First checks the database for the latest report and calculates time remaining based on that
+     * 2. If no report is found in the database, uses the provided date string from the user profile
+     * 3. Calculates the next available date (one week after the last report)
+     * 4. Determines if the current time is before or after that date
+     * 5. Returns a formatted string representing the time remaining, or "now" if a report can be submitted
+     *
+     * @param dateStr The date string of the user's last medical report in format "yyyy-MM-dd'T'HH:mm:ss"
+     * @return A formatted string representing the time remaining (e.g., "3 days, 5 hours") or "now" if a report can be submitted
+     */
     private String calculateTimeRemaining(String dateStr) {
-        // First, check if there's a report in the database from the last week
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "");
         if (!userId.isEmpty()) {
@@ -683,7 +722,6 @@ public class WeeklyReportActivity extends BaseActivity {
             }
         }
 
-        // If no recent report in the database, check the lastMedicalReport timestamp in the UserProfile
         if (dateStr == null || dateStr.isEmpty()) {
             return "now";
         }
@@ -712,6 +750,20 @@ public class WeeklyReportActivity extends BaseActivity {
         }
     }
 
+    /**
+     * Dynamically creates UI components for disease state assessment.
+     * 
+     * This method:
+     * 1. Creates a TextInputLayout with appropriate styling
+     * 2. Sets the hint text to the disease name plus "state?"
+     * 3. Creates an AutoCompleteTextView inside the TextInputLayout
+     * 4. Sets up an adapter with predefined states (very poor, poor, ok, good, very good)
+     * 5. Adds the created components to the parent layout
+     *
+     * @param parentLayout The LinearLayout where the disease question UI will be added
+     * @param disease The Disease object containing information about the disease
+     * @param states An array of strings representing possible disease states (e.g., "very poor", "poor", etc.)
+     */
     private void addDiseaseQuestion(LinearLayout parentLayout, Disease disease, String[] states) {
         TextInputLayout textInputLayout = new TextInputLayout(this);
 

@@ -28,7 +28,7 @@ public class Disease {
         this.ICD10 = ICD10;
         this.doctorName = doctorName;
         this.diagnosisDate = diagnosisDate;
-        this.doctorId = null; // Default to null
+        this.doctorId = null;
     }
 
     public Disease(int id, String name, String ICD10, String doctorName, String doctorId, String diagnosisDate) {
@@ -68,19 +68,11 @@ public class Disease {
         this.name = name;
     }
 
-    public void setDoctorName(String doctorName) {
-        this.doctorName = doctorName;
-    }
-
     public void setDiagnosisDate(String diagnosisDate) {
         this.diagnosisDate = diagnosisDate;
     }
 
     public String getDoctorId() {
         return doctorId;
-    }
-
-    public void setDoctorId(String doctorId) {
-        this.doctorId = doctorId;
     }
 }

@@ -1,7 +1,6 @@
 package com.example.myapplication;
 
 import android.annotation.SuppressLint;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -10,7 +9,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.*;
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -19,9 +17,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class DashboardActivity extends BaseActivity {
-    private String bInterpretation;
-    private String metabolicInterpretation;
+/**
+ * Activity that displays the user's dashboard with health information and disease interpretations.
+ * This activity shows the user's assigned doctors, BMI and metabolic interpretations,
+ * and disease-specific information in a carousel view.
+ */
+public class PtDashboardActivity extends BaseActivity {
 
     /**
      * Checks if a patient can submit a weekly report
@@ -31,8 +32,6 @@ public class DashboardActivity extends BaseActivity {
      */
     private boolean isWeeklyFeedbackAvailable(String userId, UserProfile userProfile) {
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
-
-        // First, check if there's a report in the database from the last week
         MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(userId);
 
         if (latestReport != null && latestReport.getReportDate() != null && !latestReport.getReportDate().isEmpty()) {
@@ -41,7 +40,6 @@ public class DashboardActivity extends BaseActivity {
                 java.time.LocalDateTime reportDate = java.time.LocalDateTime.parse(latestReport.getReportDate(), formatter);
                 java.time.LocalDateTime oneWeekAgo = java.time.LocalDateTime.now().minusWeeks(1);
 
-                // If the latest report is less than a week old, the user can't submit a new report
                 if (reportDate.isAfter(oneWeekAgo)) {
                     return false;
                 }
@@ -50,7 +48,6 @@ public class DashboardActivity extends BaseActivity {
             }
         }
 
-        // If no recent report in the database, check the lastMedicalReport timestamp in the UserProfile
         String dateStr = userProfile.getLastMedicalReport();
         if (dateStr == null || dateStr.isEmpty()) {
             return true;
@@ -68,7 +65,10 @@ public class DashboardActivity extends BaseActivity {
     }
 
     /**
-     * Checks for notifications and shows them if needed
+     * Checks if the user is eligible for a weekly report notification and displays it if needed.
+     * This method retrieves the user ID from shared preferences, checks if the user can submit
+     * a weekly report, and shows a notification dialog if the user is eligible and hasn't
+     * already been notified.
      */
     public void checkForNotifications() {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
@@ -85,26 +85,36 @@ public class DashboardActivity extends BaseActivity {
             return;
         }
 
-        // Check if the patient has weekly feedback available
         boolean canSubmitReport = isWeeklyFeedbackAvailable(userId, user.getUserProfile());
 
-        // Check if notification has been shown already
         SharedPreferences notificationPrefs = getSharedPreferences("NOTIFICATION_PREFS", MODE_PRIVATE);
         boolean notificationShown = notificationPrefs.getBoolean("notification_shown_" + userId, false);
 
-        // Show notification if weekly feedback is available and notification hasn't been shown
         if (canSubmitReport && !notificationShown) {
-            // Create a notification for the patient
             String message = "Your weekly report is now available to submit. Please log your feedback.";
             dbHelper.saveNotification(userId, message, "timer_expired");
 
-            // Show notification
             NotificationDialog dialog = new NotificationDialog(this, userId);
             dialog.show();
         }
     }
 
-    @SuppressLint({"SetTextI18p", "ClickableViewAccessibility"})
+    /**
+     * Initializes the dashboard activity, sets up UI components, and loads user data.
+     * This method performs several key operations:
+     * - Sets up the bottom navigation bar
+     * - Retrieves and displays assigned doctors for the current user
+     * - Finds the most recent BMI and Metabolic entries
+     * - Loads disease data and health widget information
+     * - Configures RecyclerViews with appropriate adapters and layouts
+     * - Checks for notifications that need to be displayed
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously
+     *                           being shut down, this Bundle contains the data it most
+     *                           recently supplied in onSaveInstanceState(Bundle).
+     *                           Otherwise it is null.
+     */
+    @SuppressLint({"SetTextI18p", "ClickableViewAccessibility", "SetTextI18n"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -118,12 +128,10 @@ public class DashboardActivity extends BaseActivity {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = preferences.getString("userId", "");
 
-        // Display assigned doctors
         if (!userId.isEmpty()) {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
             List<User> assignedDoctors = dbHelper.getDoctorsForPatient(userId);
 
-            // Find the TextView to display assigned doctors
             TextView assignedDoctorsTextView = findViewById(R.id.assigned_doctors_text);
 
             if (assignedDoctors != null && !assignedDoctors.isEmpty()) {
@@ -147,7 +155,6 @@ public class DashboardActivity extends BaseActivity {
 
         Map<String, ?> allEntries = preferences.getAll();
 
-        // Find most recent BMI interpretation
         LocalDateTime mostRecentBMI = LocalDateTime.MIN;
         String mostRecentBMIKey = "";
         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
@@ -168,7 +175,6 @@ public class DashboardActivity extends BaseActivity {
             }
         }
 
-        // Find most recent Metabolic interpretation
         LocalDateTime mostRecentMetabolic = LocalDateTime.MIN;
         String mostRecentMetabolicKey = "";
         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
@@ -190,10 +196,10 @@ public class DashboardActivity extends BaseActivity {
         }
 
         ArrayList<Disease> diseasesList = new ArrayList<>();
-        ArrayList<HealthWidget> healthWidgetsList = new ArrayList<>();
+        ArrayList<ProfileWidget> profileWidgetsList = new ArrayList<>();
 
         try (DatabaseHelper dbHelper = new DatabaseHelper(this)) {
-            // Get BMI interpretation
+            String bInterpretation;
             if (!mostRecentBMIKey.isEmpty()) {
                 try {
                     long bmiId = Long.parseLong(preferences.getString(mostRecentBMIKey, ""));
@@ -211,7 +217,7 @@ public class DashboardActivity extends BaseActivity {
                 bInterpretation = "No BMI interpretation available yet. Please update your profile to generate one.";
             }
 
-            // Get Metabolic interpretation
+            String metabolicInterpretation;
             if (!mostRecentMetabolicKey.isEmpty()) {
                 try {
                     long metabolicId = Long.parseLong(preferences.getString(mostRecentMetabolicKey, ""));
@@ -229,8 +235,7 @@ public class DashboardActivity extends BaseActivity {
                 metabolicInterpretation = "No Metabolic Balance interpretation available yet. Please update your profile with additional health metrics to generate one.";
             }
 
-            // Add health widgets to the list
-            healthWidgetsList.add(new HealthWidget(
+            profileWidgetsList.add(new ProfileWidget(
                     "BMI",
                     getString(R.string.bmi_title),
                     getString(R.string.bmi_description),
@@ -238,7 +243,7 @@ public class DashboardActivity extends BaseActivity {
                     bInterpretation
             ));
 
-            healthWidgetsList.add(new HealthWidget(
+            profileWidgetsList.add(new ProfileWidget(
                     "Metabolic",
                     getString(R.string.metabolic_title),
                     getString(R.string.metabolic_description),
@@ -246,12 +251,9 @@ public class DashboardActivity extends BaseActivity {
                     metabolicInterpretation
             ));
 
-            // Get all diseases from the database for this patient
-            // This will include diseases added by all doctors assigned to this patient
             List<Disease> diseases = dbHelper.getDiseasesForPatient(userId);
 
             for (Disease disease : diseases) {
-                // Try to get interpretation from SharedPreferences
                 String diseaseKey = "Disease#" + disease.getICD10() + "#" + disease.getName();
                 String interpretationId = preferences.getString(diseaseKey, "");
                 String interpretation = "";
@@ -267,7 +269,6 @@ public class DashboardActivity extends BaseActivity {
                     }
                 }
 
-                // If no interpretation found, use a default message
                 if (interpretation.isEmpty()) {
                     interpretation = "No detailed information available for this disease.";
                 }
@@ -276,7 +277,6 @@ public class DashboardActivity extends BaseActivity {
                 diseasesList.add(diseaseWithInterpretation);
             }
 
-            // Also include diseases from SharedPreferences for backward compatibility
             for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
                 try {
                     String key = entry.getKey();
@@ -284,7 +284,6 @@ public class DashboardActivity extends BaseActivity {
 
                     String[] parts = key.split("#");
                     if (parts.length >= 3 && parts[0].equals("Disease")) {
-                        // Check if this disease is already in the list
                         boolean alreadyExists = false;
                         for (Disease disease : diseasesList) {
                             if (disease.getICD10().equals(parts[1])) {
@@ -294,7 +293,6 @@ public class DashboardActivity extends BaseActivity {
                         }
 
                         if (!alreadyExists) {
-                            // Verify that this disease still exists in the database (not deleted by doctor)
                             SQLiteDatabase verifyDb = dbHelper.getReadableDatabase();
                             String verifyQuery = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES + " ud " +
                                     "INNER JOIN " + DatabaseHelper.TABLE_DISEASES + " d ON ud." + 
@@ -329,17 +327,15 @@ public class DashboardActivity extends BaseActivity {
             Log.e("ErrorTag", "DatabaseHelper instantiation failed", e);
         }
 
-        // Set up health widgets RecyclerView
-        HealthWidgetAdapter healthWidgetAdapter = new HealthWidgetAdapter(healthWidgetsList);
-        healthWidgetsRecyclerView.setAdapter(healthWidgetAdapter);
+        ProfileWidgetAdapter profileWidgetAdapter = new ProfileWidgetAdapter(profileWidgetsList);
+        healthWidgetsRecyclerView.setAdapter(profileWidgetAdapter);
         LinearLayoutManager healthLayoutManager =
                 new LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false);
         healthWidgetsRecyclerView.setLayoutManager(healthLayoutManager);
         int healthSpacingInPixels = getResources().getDimensionPixelSize(R.dimen.spacing);
         healthWidgetsRecyclerView.addItemDecoration(
-                new HealthWidgetAdapter.HealthWidgetItemDecoration(healthSpacingInPixels));
+                new ProfileWidgetAdapter.HealthWidgetItemDecoration(healthSpacingInPixels));
 
-        // Set up disease RecyclerView
         CarouselAdapter carouselAdapter = new CarouselAdapter(diseasesList);
 
         if (diseasesList.isEmpty()) {
@@ -357,6 +353,14 @@ public class DashboardActivity extends BaseActivity {
             diseaseRecyclerView.addItemDecoration(
                     new CarouselAdapter.CarouselItemDecoration(spacingInPixels));
             diseaseRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                /**
+                 * Called when the RecyclerView is scrolled.
+                 * This implementation simply calls the superclass method.
+                 * 
+                 * @param recyclerView The RecyclerView that was scrolled
+                 * @param dx The amount of horizontal scroll
+                 * @param dy The amount of vertical scroll
+                 */
                 @Override
                 public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                     super.onScrolled(recyclerView, dx, dy);
@@ -364,7 +368,6 @@ public class DashboardActivity extends BaseActivity {
             });
         }
 
-        // Check for notifications
         checkForNotifications();
     }
 }

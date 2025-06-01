@@ -7,6 +7,12 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+/**
+ * Database helper class that manages SQLite database operations for the MediTrack application.
+ * This class handles database creation, version management, and provides methods for
+ * CRUD operations on users, profiles, diseases, doctor-patient relationships,
+ * medical reports, and notifications.
+ */
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "medications.db";
     private static final int DATABASE_VERSION = 43;
@@ -127,10 +133,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + COLUMN_NOTIFICATION_TYPE + " TEXT, "
             + "FOREIGN KEY (" + COLUMN_NOTIFICATION_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
 
+    /**
+     * Constructor for the DatabaseHelper.
+     * Initializes the SQLite database with the specified name and version.
+     *
+     * @param context The context used to locate the database
+     */
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
+    /**
+     * Gets the singleton instance of the DatabaseHelper.
+     * This ensures that only one instance of the database helper exists throughout the application.
+     *
+     * @param context The context used to create the database helper if it doesn't exist
+     * @return The singleton instance of DatabaseHelper
+     */
     static synchronized DatabaseHelper getInstance(Context context) {
         if (instance == null) {
             instance = new DatabaseHelper(context.getApplicationContext());
@@ -138,6 +157,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return instance;
     }
 
+    /**
+     * Called when the database is created for the first time.
+     * Creates all the necessary tables for the application.
+     *
+     * @param db The database instance
+     */
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_TABLE_USERS);
@@ -150,17 +175,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_TABLE_NOTIFICATIONS);
     }
 
+    /**
+     * Called when the database needs to be upgraded from an older version to a newer one.
+     * Handles schema changes and data migration between versions.
+     * For version 32, adds a body_type column to the profile table.
+     * For other version changes, recreates all tables.
+     *
+     * @param db The database instance
+     * @param oldVersion The old database version
+     * @param newVersion The new database version
+     */
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // For version 32, add body_type column to profile table
         if (oldVersion < 32 && newVersion >= 32) {
             try {
                 db.execSQL("ALTER TABLE " + TABLE_PROFILE + " ADD COLUMN body_type TEXT");
-            } catch (Exception e) {
-                // Column might already exist, ignore
+            } catch (Exception ignored) {
             }
         } else {
-            // Full database rebuild for other version changes
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_PROFILE);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICATIONS);
@@ -176,6 +208,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+    /**
+     * Retrieves a user's profile from the database.
+     * Fetches all profile information including basic details and health metrics.
+     *
+     * @param userId The ID of the user whose profile to retrieve
+     * @return The UserProfile object containing all profile information, or null if no profile exists
+     */
     public UserProfile getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
         UserProfile userProfile = null;
@@ -200,9 +239,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             "specialty"
         };
 
-        Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[] {userId},
-                null, null, null, null);
-        try {
+        try (Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId},
+                null, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 @SuppressLint("Range") String cnp = cursor.getString(cursor.getColumnIndex("cnp"));
                 @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
@@ -216,7 +254,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     userProfile.setCnp(cnp);
                 }
 
-                // Get additional health metrics
                 @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex("body_fat_percentage"));
                 if (bodyFatPercentage > 0) {
                     userProfile.setBodyFatPercentage(bodyFatPercentage);
@@ -272,14 +309,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     userProfile.setSpecialty(specialty);
                 }
             }
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
         }
         return userProfile;
     }
 
+    /**
+     * Inserts a new user profile or updates an existing one in the database.
+     * Saves all profile information including basic details and health metrics.
+     * If a profile with the given userId already exists, it will be updated;
+     * otherwise, a new profile will be created.
+     *
+     * @param userId The ID of the user whose profile to save or update
+     * @param userProfile The UserProfile object containing the profile information to save
+     */
     public void insertOrUpdateProfile(String userId, UserProfile userProfile) {
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = null;
@@ -294,7 +336,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             values.put(COLUMN_WEIGHT, userProfile.getWeight());
             values.put(COLUMN_LAST_MED_REP, userProfile.getLastMedicalReport());
 
-            // Add additional health metrics
             values.put("body_fat_percentage", userProfile.getBodyFatPercentage());
             values.put("blood_pressure_systolic", userProfile.getBloodPressureSystolic());
             values.put("blood_pressure_diastolic", userProfile.getBloodPressureDiastolic());
@@ -318,17 +359,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 db.insert(TABLE_PROFILE, null, values);
             }
 
-            db.setTransactionSuccessful(); // Mark the transaction as successful
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
-            db.endTransaction(); // End the transaction
+            db.endTransaction();
         }
     }
 
+    /**
+     * Authenticates a user by checking if the provided username and password match a record in the database.
+     * If authentication is successful, returns a User object with the user's ID, profile, and role.
+     *
+     * @param username The username to check
+     * @param password The password to check
+     * @return A User object if authentication is successful, or null if the credentials are invalid
+     */
     public User checkUser(String username, String password) {
         SQLiteDatabase db = this.getReadableDatabase();
 
@@ -357,26 +406,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * This method is deprecated and should not be used for regular user registration.
-     * Use addTestUser for test purposes only.
-     */
-    public long addUser(String username, String password) {
-        // This method is intentionally disabled to prevent regular user registration
-        // Only test users created by AddDoctorTest class should be used
-        return -1;
-    }
-
-    /**
-     * This method is deprecated and should not be used for regular user registration.
-     * Use addTestUser for test purposes only.
-     */
-    public long addUser(String username, String password, String role) {
-        // This method is intentionally disabled to prevent regular user registration
-        // Only test users created by AddDoctorTest class should be used
-        return -1;
-    }
-
-    /**
      * Adds a test user to the database. This method should only be used by the AddDoctorTest class.
      */
     public long addTestUser(String username, String password, String role) {
@@ -391,11 +420,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             db.beginTransaction();
             result = db.insert(TABLE_USERS, null, values);
-            db.setTransactionSuccessful(); // Mark the transaction as successful
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            db.endTransaction(); // End the transaction
+            db.endTransaction();
         }
 
         return result;
@@ -408,6 +437,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return addTestUser(username, password, "doctor");
     }
 
+    /**
+     * Retrieves a user from the database by their ID.
+     * Returns a User object containing the user's ID, profile, and role.
+     *
+     * @param userId The ID of the user to retrieve
+     * @return A User object if the user exists, or null if no user with the given ID is found
+     */
     public User getUser(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
@@ -432,6 +468,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return null;
     }
 
+    /**
+     * Inserts a new session record in the database.
+     * This method is used to store key-value pairs associated with a user.
+     *
+     * @param userId The ID of the user this session data belongs to
+     * @param key The key for the session data
+     * @param value The value to store
+     * @return The ID of the newly inserted session record, or -1 if the insertion failed
+     */
     public long insertOnSession(String userId, String key, String value) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues contentValues = new ContentValues();
@@ -442,6 +487,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.insert(DatabaseHelper.TABLE_SHAREDPREF, null, contentValues);
     }
 
+    /**
+     * Retrieves a session record from the database by its ID.
+     * Returns a Session object containing the session's ID, key, and value.
+     *
+     * @param id The ID of the session record to retrieve
+     * @return A Session object if the record exists, or null if no record with the given ID is found
+     */
     public Session getSession(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.query(DatabaseHelper.TABLE_SHAREDPREF,
@@ -463,38 +515,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return null;
     }
 
-    public java.util.List<User> getAllDoctors() {
-        SQLiteDatabase db = this.getReadableDatabase();
-        java.util.List<User> doctors = new java.util.ArrayList<>();
-
-        String[] columns = {
-                COLUMN_USER_ID,
-                COLUMN_USERNAME,
-                COLUMN_PASSWORD,
-                COLUMN_USER_ROLE
-        };
-
-        Cursor cursor = db.query(
-                TABLE_USERS, columns, COLUMN_USER_ROLE + "=?", new String[] {"doctor"}, null, null, null);
-
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                @SuppressLint("Range")
-                String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
-                @SuppressLint("Range")
-                String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
-                UserProfile userProfile = getUserProfile(userId);
-                doctors.add(new User(userId, userProfile, role));
-            } while (cursor.moveToNext());
-        }
-
-        if (cursor != null) {
-            cursor.close();
-        }
-
-        return doctors;
-    }
-
+    /**
+     * Checks if a user has the doctor role.
+     * This method queries the database to determine if the user with the given ID is a doctor.
+     *
+     * @param userId The ID of the user to check
+     * @return true if the user is a doctor, false otherwise
+     */
     public boolean isDoctor(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
@@ -518,45 +545,55 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return isDoctor;
     }
 
-    public long assignPatientToDoctor(String doctorId, String patientId) {
+    /**
+     * Assigns a patient to a doctor in the database.
+     * This method creates a relationship between a doctor and a patient.
+     * The assignment will only occur if:
+     * 1. The doctorId belongs to a user with the doctor role
+     * 2. The patientId belongs to a user who is not a doctor
+     * 3. The patient is not already assigned to this doctor
+     *
+     * @param doctorId The ID of the doctor
+     * @param patientId The ID of the patient
+     */
+    public void assignPatientToDoctor(String doctorId, String patientId) {
         SQLiteDatabase db = this.getWritableDatabase();
-        long result = -1;
 
         try {
-            // Check if the doctor is actually a doctor
             if (!isDoctor(doctorId)) {
-                return -1;
+                return;
             }
 
-            // Check if the patient is actually a patient
             if (isDoctor(patientId)) {
-                return -1;
+                return;
             }
 
-            // Check if the assignment already exists
             if (isPatientAssignedToDoctor(doctorId, patientId)) {
-                return -1;
+                return;
             }
-
-            // Removed specialty check to allow patients to be assigned to multiple doctors
-            // regardless of specialty
 
             ContentValues values = new ContentValues();
             values.put(COLUMN_DOCTOR_ID_FK, doctorId);
             values.put(COLUMN_PATIENT_ID_FK, patientId);
 
             db.beginTransaction();
-            result = db.insert(TABLE_DOCTOR_PATIENTS, null, values);
-            db.setTransactionSuccessful(); // This is crucial - without it, changes won't be committed
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
             db.endTransaction();
         }
 
-        return result;
     }
 
+    /**
+     * Checks if a patient is already assigned to a doctor.
+     * This method queries the database to determine if a doctor-patient relationship exists.
+     *
+     * @param doctorId The ID of the doctor
+     * @param patientId The ID of the patient
+     * @return true if the patient is assigned to the doctor, false otherwise
+     */
     public boolean isPatientAssignedToDoctor(String doctorId, String patientId) {
         SQLiteDatabase db = this.getReadableDatabase();
 
@@ -576,11 +613,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return isAssigned;
     }
 
+    /**
+     * Gets all patients assigned to a specific doctor.
+     * This method retrieves a list of users with the patient role who have been assigned to the doctor.
+     * If the provided ID does not belong to a doctor, an empty list is returned.
+     *
+     * @param doctorId The ID of the doctor
+     * @return A list of User objects representing the patients assigned to the doctor
+     */
     public java.util.List<User> getPatientsForDoctor(String doctorId) {
         SQLiteDatabase db = this.getReadableDatabase();
         java.util.List<User> patients = new java.util.ArrayList<>();
 
-        // Check if the doctor is actually a doctor
         if (!isDoctor(doctorId)) {
             return patients;
         }
@@ -670,11 +714,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             db.beginTransaction();
             result = db.insert(TABLE_MEDICAL_REPORTS, null, values);
-            db.setTransactionSuccessful(); // Mark the transaction as successful
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            db.endTransaction(); // End the transaction
+            db.endTransaction();
         }
 
         return result;
@@ -804,7 +848,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         java.util.List<Disease> diseases = new java.util.ArrayList<>();
         java.util.Set<Integer> addedDiseaseIds = new java.util.HashSet<>();
 
-        // Query to get all diseases directly linked to the patient
         String query = "SELECT ud.*, d.*, u.username AS doctor_name, ud." + COLUMN_DOCTOR_ID_FK + " AS doctor_id " +
                 "FROM " + TABLE_USER_DISEASES + " ud " +
                 "INNER JOIN " + TABLE_DISEASES + " d ON ud." + COLUMN_DISEASE_ID_FK + " = d." + COLUMN_DISEASE_ID + " " +
@@ -818,7 +861,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 @SuppressLint("Range")
                 int diseaseId = cursor.getInt(cursor.getColumnIndex(COLUMN_DISEASE_ID_FK));
 
-                // Skip if we've already added this disease
                 if (addedDiseaseIds.contains(diseaseId)) {
                     continue;
                 }
@@ -834,7 +876,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 @SuppressLint("Range")
                 String diagnosisDate = cursor.getString(cursor.getColumnIndex("diagnosis_date"));
 
-                // Format the date if it exists
                 String formattedDate = "";
                 if (diagnosisDate != null && !diagnosisDate.isEmpty()) {
                     try {
@@ -843,7 +884,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         java.time.format.DateTimeFormatter outputFormatter = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH);
                         formattedDate = dateTime.format(outputFormatter);
                     } catch (Exception e) {
-                        formattedDate = diagnosisDate; // Fallback to original string if parsing fails
+                        formattedDate = diagnosisDate;
                     }
                 }
 
@@ -871,22 +912,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         try {
             ContentValues values = new ContentValues();
 
-            // Get current timestamp for the notification
             String date = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
 
             values.put(COLUMN_NOTIFICATION_USER_ID, userId);
             values.put(COLUMN_NOTIFICATION_MESSAGE, message);
             values.put(COLUMN_NOTIFICATION_DATE, date);
-            values.put(COLUMN_NOTIFICATION_READ, 0); // 0 = false, 1 = true
+            values.put(COLUMN_NOTIFICATION_READ, 0);
             values.put(COLUMN_NOTIFICATION_TYPE, type);
 
             db.beginTransaction();
             result = db.insert(TABLE_NOTIFICATIONS, null, values);
-            db.setTransactionSuccessful(); // Mark the transaction as successful
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            db.endTransaction(); // End the transaction
+            db.endTransaction();
         }
 
         return result;
@@ -950,116 +990,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Gets unread notifications for a user
-     * @param userId The ID of the user
-     * @return A list of unread notifications for the user
-     */
-    public java.util.List<Notification> getUnreadNotificationsForUser(String userId) {
-        SQLiteDatabase db = this.getReadableDatabase();
-        java.util.List<Notification> notifications = new java.util.ArrayList<>();
-
-        String[] columns = {
-            COLUMN_NOTIFICATION_ID,
-            COLUMN_NOTIFICATION_USER_ID,
-            COLUMN_NOTIFICATION_MESSAGE,
-            COLUMN_NOTIFICATION_DATE,
-            COLUMN_NOTIFICATION_READ,
-            COLUMN_NOTIFICATION_TYPE
-        };
-
-        String selection = COLUMN_NOTIFICATION_USER_ID + "=? AND " + COLUMN_NOTIFICATION_READ + "=?";
-        String[] selectionArgs = { userId, "0" };
-        String orderBy = COLUMN_NOTIFICATION_DATE + " DESC";
-
-        Cursor cursor = db.query(
-            TABLE_NOTIFICATIONS,
-            columns,
-            selection,
-            selectionArgs,
-            null,
-            null,
-            orderBy
-        );
-
-        if (cursor != null && cursor.moveToFirst()) {
-            do {
-                @SuppressLint("Range")
-                String id = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_ID));
-                @SuppressLint("Range")
-                String message = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_MESSAGE));
-                @SuppressLint("Range")
-                String date = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_DATE));
-                @SuppressLint("Range")
-                boolean isRead = cursor.getInt(cursor.getColumnIndex(COLUMN_NOTIFICATION_READ)) == 1;
-                @SuppressLint("Range")
-                String type = cursor.getString(cursor.getColumnIndex(COLUMN_NOTIFICATION_TYPE));
-
-                Notification notification = new Notification(id, userId, message, date, isRead, type);
-                notifications.add(notification);
-            } while (cursor.moveToNext());
-        }
-
-        if (cursor != null) {
-            cursor.close();
-        }
-
-        return notifications;
-    }
-
-    /**
-     * Marks a notification as read
-     * @param notificationId The ID of the notification
-     * @return true if the notification was marked as read, false otherwise
-     */
-    public boolean markNotificationAsRead(String notificationId) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        int rowsAffected = 0;
-
-        try {
-            ContentValues values = new ContentValues();
-            values.put(COLUMN_NOTIFICATION_READ, 1); // 1 = true
-
-            String whereClause = COLUMN_NOTIFICATION_ID + "=?";
-            String[] whereArgs = { notificationId };
-
-            db.beginTransaction();
-            rowsAffected = db.update(TABLE_NOTIFICATIONS, values, whereClause, whereArgs);
-            db.setTransactionSuccessful(); // Mark the transaction as successful
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.endTransaction(); // End the transaction
-        }
-
-        return rowsAffected > 0;
-    }
-
-    /**
-     * Deletes a notification
-     * @param notificationId The ID of the notification
-     * @return true if the notification was deleted, false otherwise
-     */
-    public boolean deleteNotification(String notificationId) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        int rowsAffected = 0;
-
-        try {
-            String whereClause = COLUMN_NOTIFICATION_ID + "=?";
-            String[] whereArgs = { notificationId };
-
-            db.beginTransaction();
-            rowsAffected = db.delete(TABLE_NOTIFICATIONS, whereClause, whereArgs);
-            db.setTransactionSuccessful(); // Mark the transaction as successful
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.endTransaction(); // End the transaction
-        }
-
-        return rowsAffected > 0;
-    }
-
-    /**
      * Deassigns a patient from a doctor
      * @param doctorId The ID of the doctor
      * @param patientId The ID of the patient
@@ -1077,11 +1007,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
             rowsAffected = db.delete(TABLE_DOCTOR_PATIENTS, whereClause, whereArgs);
 
-            db.setTransactionSuccessful(); // Mark the transaction as successful
+            db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            db.endTransaction(); // End the transaction
+            db.endTransaction();
         }
 
         return rowsAffected > 0;
@@ -1131,7 +1061,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 userProfile = new UserProfile(name, age, height, weight, lastMedicalReport);
                 userProfile.setCnp(cnp);
 
-                // Get additional health metrics
                 @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex("body_fat_percentage"));
                 if (bodyFatPercentage > 0) {
                     userProfile.setBodyFatPercentage(bodyFatPercentage);

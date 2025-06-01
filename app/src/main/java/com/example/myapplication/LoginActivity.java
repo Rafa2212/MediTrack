@@ -6,57 +6,68 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
-import android.transition.Transition;
-import android.transition.TransitionInflater;
 import android.widget.Button;
 import android.widget.EditText;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.snackbar.Snackbar;
-import android.app.ActivityOptions;
 
+/**
+ * Activity that handles user authentication and login.
+ * This activity verifies user credentials, manages user sessions, and navigates
+ * to the appropriate activity based on the user's role (patient or doctor).
+ * It also handles automatic login for users with existing sessions.
+ */
 public class LoginActivity extends AppCompatActivity {
+
     private EditText editTextUsername, editTextPassword;
     private DatabaseHelper dbHelper;
 
-
+    /**
+     * Initializes the activity, sets up UI components, and checks for existing user sessions.
+     * If a user is already logged in (has a valid userId in SharedPreferences), this method
+     * automatically navigates to the appropriate activity based on the user's role:
+     * - ProfileSetupActivity if the user profile is not set up
+     * - DoctorDashboardActivity if the user is a doctor
+     * - DashboardActivity if the user is a patient
+     * If no user is logged in, it displays the login form and sets up the login button.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously
+     *                           being shut down, this Bundle contains the data it most
+     *                           recently supplied in onSaveInstanceState(Bundle).
+     *                           Otherwise it is null.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Enable window content transitions
         getWindow().requestFeature(android.view.Window.FEATURE_CONTENT_TRANSITIONS);
         getWindow().requestFeature(android.view.Window.FEATURE_ACTIVITY_TRANSITIONS);
 
         super.onCreate(savedInstanceState);
 
-        // Check if user is already logged in
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = preferences.getString("userId", "");
 
         if (!userId.isEmpty()) {
-            // User is already logged in, get user details
             dbHelper = DatabaseHelper.getInstance(this);
             User user = dbHelper.getUser(userId);
 
             if (user != null) {
-                // Valid user found, redirect to appropriate dashboard
                 Intent intent;
 
                 if (user.getUserProfile() == null) {
                     // User needs to set up profile
-                    intent = new Intent(LoginActivity.this, ProfileSetupActivity.class);
+                    intent = new Intent(LoginActivity.this, DrProfileActivity.class);
                     startActivity(intent);
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
                     finish();
                 } else if ("doctor".equals(user.getRole())) {
                     // Doctor dashboard
-                    intent = new Intent(this, DoctorDashboardActivity.class);
+                    intent = new Intent(this, DrDashboardActivity.class);
                     startActivity(intent);
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
                     finish();
                 } else {
-                    // Patient dashboard
-                    intent = new Intent(this, DashboardActivity.class);
+                    intent = new Intent(this, PtDashboardActivity.class);
 
-                    // Start the dashboard activity
                     startActivity(intent);
                     overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
 
@@ -66,34 +77,18 @@ public class LoginActivity extends AppCompatActivity {
             }
         }
 
-        // If no valid session or user not found, show login screen
         setContentView(R.layout.activity_login);
 
-        // Set default transition animations
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
-
-        // Apply smooth window transitions
-        setupWindowAnimations();
 
         dbHelper = DatabaseHelper.getInstance(this);
 
-        // Add a doctor user for testing
-        AddDoctorTest.addDoctorForTesting(this);
-
-        // Ensure the 'medic' user exists
-        AddMedicUser.addMedicUser(this);
-
-        // Create a profile for rafael with realistic health data
-        SimulateRafaelProfile.createRafaelProfile(this);
-
-        // Simulate that patient8's weekly feedback is available to complete
-        //SimulatePatient8Feedback.simulatePatient8Feedback(this);
+        UserTest.addDoctorForTesting(this);
 
         editTextUsername = findViewById(R.id.editTextUsername);
         editTextPassword = findViewById(R.id.editTextPassword);
         Button buttonLogin = findViewById(R.id.buttonLogin);
 
-        // Retrieve and display the last username
         String lastUsername = preferences.getString("last_username", "");
         if (!lastUsername.isEmpty()) {
             editTextUsername.setText(lastUsername);
@@ -102,6 +97,17 @@ public class LoginActivity extends AppCompatActivity {
         buttonLogin.setOnClickListener(v -> login());
     }
 
+    /**
+     * Validates user credentials and performs the login process.
+     * This method retrieves the username and password from the input fields,
+     * validates that they are not empty, and checks them against the database.
+     * If authentication is successful, it saves the user session, shows a success message,
+     * and navigates to the appropriate activity based on the user's role:
+     * - ProfileSetupActivity if the user profile is not set up
+     * - DoctorDashboardActivity if the user is a doctor
+     * - DashboardActivity if the user is a patient
+     * If authentication fails, it displays an error message.
+     */
     private void login() {
         String username = editTextUsername.getText().toString().trim();
         String password = editTextPassword.getText().toString().trim();
@@ -121,23 +127,19 @@ public class LoginActivity extends AppCompatActivity {
                     .show();
             onUserLoggedIn(user.getUserId());
 
+            Intent intent;
             if (user.getUserProfile() == null) {
-                Intent intent = new Intent(LoginActivity.this, ProfileSetupActivity.class);
+                intent = new Intent(LoginActivity.this, DrProfileActivity.class);
                 startActivity(intent);
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
             } else {
-                Intent intent;
                 if ("doctor".equals(user.getRole())) {
-                    intent = new Intent(this, DoctorDashboardActivity.class);
-                    startActivity(intent);
-                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    intent = new Intent(this, DrDashboardActivity.class);
                 } else {
-                    // Patient dashboard
-                    intent = new Intent(this, DashboardActivity.class);
-                    startActivity(intent);
-                    overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                    intent = new Intent(this, PtDashboardActivity.class);
                 }
+                startActivity(intent);
             }
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
 
             finish();
             overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
@@ -150,8 +152,17 @@ public class LoginActivity extends AppCompatActivity {
     }
 
 
+    /**
+     * Saves the user's session data after successful login.
+     * This method:
+     * 1. Clears any existing session data in SharedPreferences
+     * 2. Saves the user ID and username for the current session
+     * 3. Retrieves and restores any previously saved preferences for this user
+     * from the database and adds them to SharedPreferences
+     * 
+     * @param userId The ID of the authenticated user to save in the session
+     */
     public void onUserLoggedIn(String userId) {
-        // Save the username to SharedPreferences
         String username = editTextUsername.getText().toString().trim();
 
         SharedPreferences.Editor editor = getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
@@ -182,32 +193,15 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-
     /**
-     * Set up window transition animations
+     * Overrides the default finish method to add custom transition animations.
+     * This method applies slide-in-left and slide-out-right animations when
+     * the activity is closed, providing a consistent user experience with
+     * the rest of the application.
      */
-    private void setupWindowAnimations() {
-        Transition enterTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
-        enterTransition.setDuration(300);
-        getWindow().setEnterTransition(enterTransition);
-
-        Transition exitTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
-        exitTransition.setDuration(300);
-        getWindow().setExitTransition(exitTransition);
-
-        Transition sharedElementEnterTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
-        sharedElementEnterTransition.setDuration(300);
-        getWindow().setSharedElementEnterTransition(sharedElementEnterTransition);
-
-        Transition sharedElementExitTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
-        sharedElementExitTransition.setDuration(300);
-        getWindow().setSharedElementExitTransition(sharedElementExitTransition);
-    }
-
     @Override
     public void finish() {
         super.finish();
-        // Apply custom exit animation
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 }

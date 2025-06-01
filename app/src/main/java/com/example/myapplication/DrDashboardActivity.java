@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -12,70 +11,73 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.util.List;
 
-public class DoctorDashboardActivity extends BaseActivity {
-    private DatabaseHelper dbHelper;
-    private TextView welcomeText;
-    private RecyclerView patientsRecyclerView;
-    private PatientAdapter patientAdapter;
+/**
+ * Activity that displays the doctor's dashboard with their information and list of patients.
+ * This activity shows the doctor's name and specialty, provides a list of patients assigned
+ * to the doctor, and includes a floating action button to add new patients.
+ * The bottom navigation is configured specifically for doctor users.
+ */
+public class DrDashboardActivity extends BaseActivity {
 
+    /**
+     * Initializes the doctor dashboard activity, sets up UI components, and loads doctor data.
+     * This method performs several key operations:
+     * - Sets up the activity layout and window transitions
+     * - Configures the bottom navigation bar for doctor users
+     * - Sets up the floating action button to add new patients
+     * - Retrieves and displays the doctor's name and specialty
+     * - Loads and displays the list of patients assigned to the doctor
+     * - Shows appropriate UI based on whether the doctor has patients or not
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously
+     *                           being shut down, this Bundle contains the data it most
+     *                           recently supplied in onSaveInstanceState(Bundle).
+     *                           Otherwise it is null.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Enable window content transitions
         getWindow().requestFeature(android.view.Window.FEATURE_CONTENT_TRANSITIONS);
 
         setContentView(R.layout.activity_doctor_dashboard);
 
-        dbHelper = DatabaseHelper.getInstance(this);
-        welcomeText = findViewById(R.id.doctor_welcome_text);
-        patientsRecyclerView = findViewById(R.id.patients_recyclerview);
+        DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
+        TextView welcomeText = findViewById(R.id.doctor_welcome_text);
+        RecyclerView patientsRecyclerView = findViewById(R.id.patients_recyclerview);
 
-        // Set up bottom navigation
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
         setupDoctorNavigation(bottomNav, R.id.menu_doctor_dashboard);
 
-        // Set up add patient button
         FloatingActionButton fabAddPatient = findViewById(R.id.fab_add_patient);
-        fabAddPatient.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(DoctorDashboardActivity.this, ProfileSetupActivity.class);
-                intent.putExtra("create_new_patient", true);
-                startActivity(intent);
-            }
+        fabAddPatient.setOnClickListener(v -> {
+            Intent intent = new Intent(DrDashboardActivity.this, DrProfileActivity.class);
+            intent.putExtra("create_new_patient", true);
+            startActivity(intent);
         });
 
-        // Get current doctor ID from SharedPreferences
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String doctorId = preferences.getString("userId", "");
 
         if (!doctorId.isEmpty()) {
-            // Get doctor information
             User doctor = dbHelper.getUser(doctorId);
             if (doctor != null && doctor.getUserProfile() != null) {
-                // Set welcome message with doctor's name and specialty
                 String doctorName = doctor.getUserProfile().getName();
                 String specialty = doctor.getUserProfile().getSpecialty();
 
-                // Create a more minimalist welcome message that includes specialty
                 String welcomeMsg = doctorName;
                 if (specialty != null && !specialty.isEmpty()) {
                     welcomeMsg += " | " + specialty;
                 }
                 welcomeText.setText(welcomeMsg);
 
-                // Get patients for this doctor
                 List<User> patients = dbHelper.getPatientsForDoctor(doctorId);
 
-                // Set up RecyclerView
                 patientsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-                // Set up the adapter with patients
-                patientAdapter = new PatientAdapter(this, patients);
+                PatientAdapter patientAdapter = new PatientAdapter(this, patients);
                 patientsRecyclerView.setAdapter(patientAdapter);
 
-                // Show a message if there are no patients
                 TextView noPatientsMsgView = findViewById(R.id.no_patients_message);
                 if (patients.isEmpty()) {
                     noPatientsMsgView.setVisibility(View.VISIBLE);

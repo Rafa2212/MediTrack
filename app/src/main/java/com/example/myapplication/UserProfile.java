@@ -9,9 +9,7 @@ public class UserProfile {
     private String lastMedicalReport;
     private String specialty; // Doctor specialty (e.g., cardiologist, dermatologist)
 
-    // Additional health metrics for better diagnosis
     private float bodyFatPercentage;
-    private float waistCircumference;
     private int restingHeartRate;
     private int bloodPressureSystolic;
     private int bloodPressureDiastolic;
@@ -37,8 +35,8 @@ public class UserProfile {
     private int wakeSleep;
     private int averageActiveZoneMinutes;
     private String vo2Max;
-    private int healthScore; // Score out of 100 indicating overall health status
-    private String bodyType; // Ectomorph, Mesomorph, Endomorph, or hybrid types
+    private int healthScore;
+    private String bodyType; // Ectomorph, Mesomorph, Endomorph, or hybrid types (combination)
 
     public UserProfile(String name, int age, float height, float weight, String lastMedicalReport) {
         this.cnp = "";
@@ -47,11 +45,9 @@ public class UserProfile {
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
-        this.specialty = ""; // Default specialty is empty string
+        this.specialty = "";
 
-        // Initialize additional health metrics with default values
         this.bodyFatPercentage = 0;
-        this.waistCircumference = 0;
         this.restingHeartRate = 0;
         this.bloodPressureSystolic = 0;
         this.bloodPressureDiastolic = 0;
@@ -59,8 +55,8 @@ public class UserProfile {
         this.cholesterolTotal = 0;
         this.cholesterolHDL = 0;
         this.cholesterolLDL = 0;
-        this.healthScore = 0; // Default health score is 0
-        this.bodyType = ""; // Default body type is empty string
+        this.healthScore = 0;
+        this.bodyType = "";
     }
 
     public UserProfile(String cnp, String name, int age, float height, float weight, String lastMedicalReport) {
@@ -70,11 +66,9 @@ public class UserProfile {
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
-        this.specialty = ""; // Default specialty is empty string
+        this.specialty = "";
 
-        // Initialize additional health metrics with default values
         this.bodyFatPercentage = 0;
-        this.waistCircumference = 0;
         this.restingHeartRate = 0;
         this.bloodPressureSystolic = 0;
         this.bloodPressureDiastolic = 0;
@@ -82,8 +76,8 @@ public class UserProfile {
         this.cholesterolTotal = 0;
         this.cholesterolHDL = 0;
         this.cholesterolLDL = 0;
-        this.healthScore = 0; // Default health score is 0
-        this.bodyType = ""; // Default body type is empty string
+        this.healthScore = 0;
+        this.bodyType = "";
     }
 
 
@@ -207,21 +201,12 @@ public class UserProfile {
         this.vo2Max = vo2Max;
     }
 
-    // Getters and setters for additional health metrics
     public float getBodyFatPercentage() {
         return bodyFatPercentage;
     }
 
     public void setBodyFatPercentage(float bodyFatPercentage) {
         this.bodyFatPercentage = bodyFatPercentage;
-    }
-
-    public float getWaistCircumference() {
-        return waistCircumference;
-    }
-
-    public void setWaistCircumference(float waistCircumference) {
-        this.waistCircumference = waistCircumference;
     }
 
     public int getRestingHeartRate() {
@@ -319,4 +304,5 @@ public class UserProfile {
     public void setSpecialty(String specialty) {
         this.specialty = specialty;
     }
+
 }

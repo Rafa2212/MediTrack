@@ -1,6 +1,5 @@
 package com.example.myapplication;
 
-import android.app.ActivityOptions;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -11,39 +10,34 @@ import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import java.util.List;
 
 public abstract class BaseActivity extends AppCompatActivity {
 
     /**
-     * Shows the notification dialog
+     * Initializes the activity, sets up window transitions and animations.
+     * This method is called when the activity is starting.
+     *
+     * @param savedInstanceState If the activity is being re-initialized after previously
+     *                           being shut down, this Bundle contains the data it most
+     *                           recently supplied in onSaveInstanceState(Bundle).
+     *                           Otherwise it is null.
      */
-    protected void showNotificationDialog() {
-        SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-        String userId = sharedPreferences.getString("userId", "");
-        if (!userId.isEmpty()) {
-            NotificationDialog dialog = new NotificationDialog(this, userId);
-            dialog.show();
-        }
-    }
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        // Enable window content transitions
         getWindow().requestFeature(android.view.Window.FEATURE_CONTENT_TRANSITIONS);
         getWindow().requestFeature(android.view.Window.FEATURE_ACTIVITY_TRANSITIONS);
 
         super.onCreate(savedInstanceState);
 
-        // Set default transition animations
         overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
 
-        // Apply smooth window transitions
         setupWindowAnimations();
     }
 
     /**
-     * Set up window transition animations
+     * Sets up window transition animations for the activity.
+     * Configures enter, exit, shared element enter, and shared element exit transitions
+     * with a duration of 300ms using the transition defined in R.transition.move.
      */
     protected void setupWindowAnimations() {
         Transition enterTransition = TransitionInflater.from(this).inflateTransition(R.transition.move);
@@ -63,16 +57,21 @@ public abstract class BaseActivity extends AppCompatActivity {
         getWindow().setSharedElementExitTransition(sharedElementExitTransition);
     }
 
+    /**
+     * Called when the activity is finishing and should be closed.
+     * Overrides the default transition animation with custom slide animations.
+     */
     @Override
     public void finish() {
         super.finish();
-        // Apply custom exit animation
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
     }
 
     /**
-     * Start an activity with custom transitions
-     * @param intent The intent to start the activity
+     * Starts an activity with custom slide transition animations.
+     * This method provides a consistent transition experience across the app.
+     * 
+     * @param intent The intent containing the activity to be started and any additional data
      */
     public void startActivityWithTransition(Intent intent) {
         startActivity(intent);
@@ -80,61 +79,20 @@ public abstract class BaseActivity extends AppCompatActivity {
     }
 
     /**
-     * Start an activity with custom transitions and finish the current activity
-     * @param intent The intent to start the activity
+     * Sets up the bottom navigation bar for the activity.
+     * Configures the navigation menu based on user type (doctor or patient),
+     * sets the selected item, and handles navigation item clicks.
+     * 
+     * @param bottomNav The BottomNavigationView to be configured
+     * @param selectedItemId The resource ID of the menu item to be selected by default
      */
-    public void startActivityWithTransitionAndFinish(Intent intent) {
-        startActivity(intent);
-        finish();
-    }
-
-    /**
-     * Start an activity with fade transitions
-     * @param intent The intent to start the activity
-     */
-    public void startActivityWithFadeTransition(Intent intent) {
-        startActivity(intent);
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-    }
-
-    /**
-     * Start an activity with fade transitions and finish the current activity
-     * @param intent The intent to start the activity
-     */
-    public void startActivityWithFadeTransitionAndFinish(Intent intent) {
-        startActivity(intent);
-        finish();
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
-    }
-
-    /**
-     * Start an activity with zoom transitions
-     * @param intent The intent to start the activity
-     */
-    public void startActivityWithZoomTransition(Intent intent) {
-        startActivity(intent);
-        overridePendingTransition(R.anim.zoom_in, R.anim.zoom_out);
-    }
-
-    /**
-     * Start an activity with zoom transitions and finish the current activity
-     * @param intent The intent to start the activity
-     */
-    public void startActivityWithZoomTransitionAndFinish(Intent intent) {
-        startActivity(intent);
-        finish();
-        overridePendingTransition(R.anim.zoom_in, R.anim.zoom_out);
-    }
     protected void setupNavigation(BottomNavigationView bottomNav, @IdRes int selectedItemId) {
-        // Check if user is a patient or doctor
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "");
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
         boolean isDoctor = dbHelper.isDoctor(userId);
 
-        // Set the appropriate menu based on user role
         if (!isDoctor) {
-            // For patients, use the menu without the profile option
             bottomNav.getMenu().clear();
             bottomNav.inflateMenu(R.menu.bottom_navigation_menu_patient);
         }
@@ -149,17 +107,15 @@ public abstract class BaseActivity extends AppCompatActivity {
             getWindow().setSharedElementExitTransition(fade);
 
             if (itemId == R.id.menu_dashboard) {
-                intent = new Intent(this, DashboardActivity.class);
+                intent = new Intent(this, PtDashboardActivity.class);
             } else if (itemId == R.id.menu_profile && isDoctor) {
-                // Only doctors should be able to access ProfileSetupActivity
-                intent = new Intent(this, ProfileSetupActivity.class);
+                intent = new Intent(this, DrProfileActivity.class);
             } else if (itemId == R.id.menu_wkly_report) {
-                intent = new Intent(this, WeeklyReportActivity.class);
+                intent = new Intent(this, PtFeedbackActivity.class);
             } else if (itemId == R.id.menu_logout) {
                 SharedPreferences prefs = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                 String lastUsername = prefs.getString("last_username", "");
                 prefs.edit().clear().apply();
-                // Restore the last username after clearing
                 if (!lastUsername.isEmpty()) {
                     prefs.edit().putString("last_username", lastUsername).apply();
                 }
@@ -175,6 +131,14 @@ public abstract class BaseActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Sets up the bottom navigation bar specifically for doctor users.
+     * Configures the navigation menu with doctor-specific options,
+     * sets the selected item, and handles navigation item clicks.
+     * 
+     * @param bottomNav The BottomNavigationView to be configured for doctor users
+     * @param selectedItemId The resource ID of the menu item to be selected by default
+     */
     protected void setupDoctorNavigation(BottomNavigationView bottomNav, @IdRes int selectedItemId) {
         bottomNav.setBackgroundColor(Color.WHITE);
         bottomNav.setSelectedItemId(selectedItemId);
@@ -186,14 +150,13 @@ public abstract class BaseActivity extends AppCompatActivity {
             getWindow().setSharedElementExitTransition(fade);
 
             if (itemId == R.id.menu_doctor_dashboard) {
-                intent = new Intent(this, DoctorDashboardActivity.class);
+                intent = new Intent(this, DrDashboardActivity.class);
             } else if (itemId == R.id.menu_patients) {
-                intent = new Intent(this, DoctorPatientsActivity.class);
+                intent = new Intent(this, DrPatientsActivity.class);
             } else if (itemId == R.id.menu_logout) {
                 SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
                 String lastUsername = sharedPreferences.getString("last_username", "");
                 sharedPreferences.edit().clear().apply();
-                // Restore the last username after clearing
                 if (!lastUsername.isEmpty()) {
                     sharedPreferences.edit().putString("last_username", lastUsername).apply();
                 }

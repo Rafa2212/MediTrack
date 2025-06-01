@@ -3,7 +3,6 @@ package com.example.myapplication;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Environment;
 import androidx.core.content.FileProvider;
 
 import com.itextpdf.kernel.colors.DeviceRgb;
@@ -17,61 +16,98 @@ import com.itextpdf.layout.element.Text;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 
+/**
+ * Utility class for generating PDF reports for patients.
+ * This class uses the iText PDF library to create professionally formatted medical reports
+ * with consistent styling, proper section organization, and page numbering.
+ * 
+ * The generated PDFs include sections for:
+ * - BMI (Body Mass Index) analysis
+ * - Metabolic balance assessment
+ * - Health diagnostics information
+ * - Patient feedback and self-assessment
+ * 
+ * If any of these sections are not present in the provided report content,
+ * default sections with general information will be added automatically.
+ */
 public class PDFGeneration {
-    private Context context;
+    private final Context context;
 
+    /**
+     * Constructs a new PDFGeneration instance with the specified context.
+     * The context is used to access application resources and file storage.
+     *
+     * @param context The application context used for file operations
+     */
     public PDFGeneration(Context context) {
         this.context = context;
     }
 
-    public File createPDF(String weeklyReportResponse) {
-        return createPDF(weeklyReportResponse, null);
-    }
-
-    public File createPDF(String weeklyReportResponse, String patientId) {
-        // Create a unique filename based on patient ID and current date if patientId is provided
+    /**
+     * Creates a PDF file containing formatted medical report information.
+     * This method processes the provided weekly report response, formats it into a structured PDF,
+     * and saves it to the application's files directory in a patient-specific folder.
+     * 
+     * The method performs the following operations:
+     * 1. Creates a unique filename based on patient ID and current timestamp
+     * 2. Creates necessary directories for storing the PDF file
+     * 3. Processes the weekly report response into properly formatted sections
+     * 4. Adds any missing standard sections (BMI, metabolic, diagnostics, feedback)
+     * 5. Adds page numbers to all pages
+     * 6. Saves the PDF file to storage
+     *
+     * @param weeklyReportResponse The content to include in the PDF, formatted with Markdown-style headings
+     * @param patientId The ID of the patient, used for filename generation and directory structure
+     * @param patientName The name of the patient, used for creating a patient-specific directory
+     * @return The generated PDF file
+     */
+    public File createPDF(String weeklyReportResponse, String patientId, String patientName) {
         String filename = "WeeklyReport.pdf";
         if (patientId != null) {
             String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
             filename = "report_" + patientId + "_" + timestamp + ".pdf";
         }
 
-        // Create reports directory if it doesn't exist
         File reportsDir = new File(context.getFilesDir(), "reports");
         if (!reportsDir.exists()) {
             reportsDir.mkdirs();
         }
 
-        File pdfFile = new File(reportsDir, filename);
+        File patientDir = reportsDir;
+        if (patientName != null && !patientName.isEmpty()) {
+            String sanitizedName = patientName.replaceAll("[^a-zA-Z0-9]", "_");
+            patientDir = new File(reportsDir, sanitizedName);
+            if (!patientDir.exists()) {
+                patientDir.mkdirs();
+            }
+        }
+
+        File pdfFile = new File(patientDir, filename);
         if (pdfFile.exists()) {
             pdfFile.delete();
         }
         try {
-            PdfWriter writer = new PdfWriter(new FileOutputStream(pdfFile));
+            PdfWriter writer = new PdfWriter(Files.newOutputStream(pdfFile.toPath()));
             PdfDocument pdf = new PdfDocument(writer);
             Document document = new Document(pdf);
 
-            // Set document properties for better formatting
-            document.setMargins(36, 36, 36, 36); // 0.5 inch margins
+            document.setMargins(36, 36, 36, 36);
 
-            // Parse the response to identify sections
             if (weeklyReportResponse == null) {
                 weeklyReportResponse = "Error: No content available.";
             }
             String[] sections = weeklyReportResponse.split("(?=# |## |### )");
 
-            // Variables to track sections
             boolean hasBMISection = false;
             boolean hasMetabolicSection = false;
             boolean hasDiagnosticsSection = false;
             boolean hasFeedbackSection = false;
 
-            // Process each section
             for (String section : sections) {
                 if (section == null || section.trim().isEmpty()) continue;
 
-                // Identify section type
                 if (section.contains("BMI") || section.contains("Body Mass Index")) {
                     hasBMISection = true;
                 }
@@ -85,10 +121,8 @@ public class PDFGeneration {
                     hasFeedbackSection = true;
                 }
 
-                // Process the section line by line
                 String[] lines = section.split("\n");
-                for (int i = 0; i < lines.length; i++) {
-                    String line = lines[i];
+                for (String line : lines) {
                     if (line == null) continue;
 
                     if (line.startsWith("# ")) {
@@ -141,19 +175,17 @@ public class PDFGeneration {
                     } else if (line.startsWith("- ") || line.startsWith("* ")) {
                         // Bullet points
                         String bulletText = line.substring(2);
-                        if (bulletText != null) {
-                            Paragraph para = new Paragraph()
-                                    .setFontSize(12)
-                                    .setMarginLeft(20f)
-                                    .setFirstLineIndent(-10f);
+                        Paragraph para = new Paragraph()
+                                .setFontSize(12)
+                                .setMarginLeft(20f)
+                                .setFirstLineIndent(-10f);
 
-                            Text bullet = new Text("• ")
-                                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
-                            para.add(bullet).add(bulletText);
+                        Text bullet = new Text("• ")
+                                .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
+                        para.add(bullet).add(bulletText);
 
-                            document.add(para);
-                        }
-                    } else if (line != null && !line.trim().isEmpty()) {
+                        document.add(para);
+                    } else if (!line.trim().isEmpty()) {
                         // Regular paragraph text
                         Paragraph para = new Paragraph(line)
                                 .setFontSize(12)
@@ -163,7 +195,6 @@ public class PDFGeneration {
                 }
             }
 
-            // Add missing sections if needed
             if (!hasBMISection) {
                 addBMISection(document);
             }
@@ -180,25 +211,20 @@ public class PDFGeneration {
                 addFeedbackSection(document);
             }
 
-            // Add page numbers using an event handler instead of trying to add them after pages are created
-            // This avoids the "Cannot draw elements on already flushed pages" exception
             try {
                 int numberOfPages = pdf.getNumberOfPages();
                 for (int i = 1; i <= numberOfPages; i++) {
-                    // Get the page
                     com.itextpdf.kernel.pdf.PdfPage page = pdf.getPage(i);
                     if (page == null) {
-                        continue; // Skip this page if it's null
+                        continue;
                     }
 
                     try {
-                        // Create a new content stream for the page
                         com.itextpdf.kernel.pdf.canvas.PdfCanvas canvas = new com.itextpdf.kernel.pdf.canvas.PdfCanvas(page);
 
-                        // Get page size with null check
                         com.itextpdf.kernel.geom.Rectangle pageSize = page.getPageSize();
                         if (pageSize == null) {
-                            continue; // Skip this page if its size is null
+                            continue;
                         }
 
                         // Create a canvas for writing content
@@ -218,12 +244,10 @@ public class PDFGeneration {
                                 com.itextpdf.layout.property.TextAlignment.CENTER, 
                                 com.itextpdf.layout.property.VerticalAlignment.BOTTOM, 0);
                     } catch (Exception e) {
-                        // Log the error but continue processing other pages
                         e.printStackTrace();
                     }
                 }
             } catch (Exception e) {
-                // Log the error but don't let it crash the PDF generation
                 e.printStackTrace();
             }
 
@@ -234,18 +258,19 @@ public class PDFGeneration {
         return pdfFile;
     }
 
-    public void openPDF(File pdfFile) {
-        Uri pdfUri = FileProvider.getUriForFile(context, context.getApplicationContext().getPackageName() + ".provider", pdfFile);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(pdfUri, "application/pdf");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(intent);
-    }
-
     /**
-     * Adds a BMI analysis section to the document if it's not already present
+     * Adds a BMI (Body Mass Index) analysis section to the document if it's not already present.
+     * This method creates a formatted section with the following components:
+     * - A section title with medium blue color and bold font
+     * - An explanatory paragraph describing what BMI is and its purpose
+     * - A list of BMI categories with bullet points (Underweight, Normal weight, etc.)
+     * - A note about BMI limitations as a screening tool
+     * 
+     * This section provides educational information about BMI interpretation
+     * and is added automatically if the weekly report doesn't include BMI information.
+     *
      * @param document The PDF document to add the section to
+     * @throws IOException If there is an error creating or adding content to the document
      */
     private void addBMISection(Document document) throws IOException {
         // Add section title
@@ -313,8 +338,20 @@ public class PDFGeneration {
     }
 
     /**
-     * Adds a metabolic balance section to the document if it's not already present
+     * Adds a metabolic balance analysis section to the document if it's not already present.
+     * This method creates a formatted section with the following components:
+     * - A section title with medium blue color and bold font
+     * - An explanatory paragraph describing metabolic balance and its influences
+     * - A subsection for key metabolic indicators with bullet points
+     *   (Resting Heart Rate, Active Zone Minutes, Steps per Day, etc.)
+     * - A subsection with general recommendations for optimal metabolic health
+     * 
+     * This section provides educational information about metabolic health
+     * and practical recommendations for maintaining metabolic balance.
+     * It is added automatically if the weekly report doesn't include metabolic information.
+     *
      * @param document The PDF document to add the section to
+     * @throws IOException If there is an error creating or adding content to the document
      */
     private void addMetabolicSection(Document document) throws IOException {
         // Add section title
@@ -395,8 +432,22 @@ public class PDFGeneration {
     }
 
     /**
-     * Adds a diagnostics section to the document if it's not already present
+     * Adds a health diagnostics section to the document if it's not already present.
+     * This method creates a formatted section with the following components:
+     * - A section title with medium blue color and bold font
+     * - An explanatory paragraph describing the purpose of health diagnostics
+     * - Three subsections covering different diagnostic areas:
+     *   1. Cardiovascular Health (HRV and VO2 Max information)
+     *   2. Respiratory Function (breathing rate information)
+     *   3. Sleep Quality (sleep stages and factors affecting sleep quality)
+     * - A note about consulting healthcare providers for proper diagnosis
+     * 
+     * This section provides educational information about key health indicators
+     * based on Fitbit data and their significance for overall health assessment.
+     * It is added automatically if the weekly report doesn't include diagnostics information.
+     *
      * @param document The PDF document to add the section to
+     * @throws IOException If there is an error creating or adding content to the document
      */
     private void addDiagnosticsSection(Document document) throws IOException {
         // Add section title
@@ -470,8 +521,22 @@ public class PDFGeneration {
     }
 
     /**
-     * Adds a patient feedback section to the document if it's not already present
+     * Adds a patient feedback and self-assessment section to the document if it's not already present.
+     * This method creates a formatted section with the following components:
+     * - A section title with medium blue color and bold font
+     * - An explanatory paragraph describing the importance of patient feedback
+     * - A subsection for general health assessment with placeholder content
+     * - A subsection for condition-specific feedback with placeholder content
+     * - A note about the importance of patient self-assessment and regular communication
+     * 
+     * This section serves as a placeholder for patient-reported information and emphasizes
+     * the value of patient feedback in comprehensive healthcare assessment.
+     * It is added automatically if the weekly report doesn't include patient feedback information.
+     * The placeholder content directs readers to refer to weekly questionnaire responses for
+     * more specific patient feedback.
+     *
      * @param document The PDF document to add the section to
+     * @throws IOException If there is an error creating or adding content to the document
      */
     private void addFeedbackSection(Document document) throws IOException {
         // Add section title

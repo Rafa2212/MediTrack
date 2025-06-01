@@ -35,17 +35,15 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".ProfileSetupActivity"/>
+        <activity android:name=".DrProfileActivity"/>
 
-        <activity android:name=".BodyTypeQuizActivity"/>
+        <activity android:name=".DrQuizActivity"/>
 
-        <activity android:name=".AddDiseaseActivity"/>
-        <activity android:name=".DashboardActivity"/>
-        <activity android:name=".WeeklyReportActivity"/>
-        <activity android:name=".DoctorDashboardActivity"/>
-        <activity android:name=".DoctorPatientsActivity"/>
-        <activity android:name=".MedicalReportsActivity"/>
-        <activity android:name=".CreateDoctorActivity"/>
+        <activity android:name=".PtDashboardActivity"/>
+        <activity android:name=".PtFeedbackActivity"/>
+        <activity android:name=".DrDashboardActivity"/>
+        <activity android:name=".DrPatientsActivity"/>
+        <activity android:name=".DrReportsActivity"/>
 
     </application>
 </manifest>
