@@ -88,6 +88,26 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/genderDropdownLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/gender"
+                app:boxStrokeColor="@color/logoColorRed"
+                app:hintTextColor="@color/logoColorRed"
+                app:layout_constraintTop_toBottomOf="@+id/editTextAgeLayout"
+                app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/spinnerGender"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none"
+                    android:focusable="false" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/editTextHeightLayout"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
@@ -95,7 +115,7 @@
                 android:hint="@string/height"
                 app:boxStrokeColor="@color/logoColorRed"
                 app:hintTextColor="@color/logoColorRed"
-                app:layout_constraintTop_toBottomOf="@+id/editTextAgeLayout"
+                app:layout_constraintTop_toBottomOf="@+id/genderDropdownLayout"
                 app:layout_constraintStart_toStartOf="parent">
 
             <com.google.android.material.textfield.TextInputEditText

@@ -2,6 +2,7 @@ package com.example.myapplication;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -20,8 +22,12 @@ import com.google.android.material.snackbar.Snackbar;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Activity that displays medical reports for a patient.
@@ -53,15 +59,15 @@ public class DrReportsActivity extends BaseActivity {
         RecyclerView reportsRecyclerView = findViewById(R.id.reports_recyclerview);
         TextView patientNameText = findViewById(R.id.patient_name_text);
 
-        reportsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        reportsRecyclerView.setLayoutManager(new GridLayoutManager(this, 2));
 
         String patientId = getIntent().getStringExtra("patient_id");
 
         if (patientId != null && !patientId.isEmpty()) {
             User patient = dbHelper.getUser(patientId);
 
-            if (patient != null && patient.getUserProfile() != null) {
-                patientNameText.setText(patient.getUserProfile().getName() + "'s Medical Reports");
+            if (patient != null && patient.getPatient() != null) {
+                patientNameText.setText(patient.getPatient().getName() + "'s Medical Reports");
 
                 try {
                     List<MedicalReport> reports = dbHelper.getMedicalReportsForPatient(patientId);
@@ -78,7 +84,6 @@ public class DrReportsActivity extends BaseActivity {
                             "Error loading medical reports!",
                             Snackbar.LENGTH_SHORT).show();
                 }
-
             } else {
                 Snackbar.make(findViewById(android.R.id.content),
                         "Patient information not found!",
@@ -86,10 +91,79 @@ public class DrReportsActivity extends BaseActivity {
                 finish();
             }
         } else {
-            Snackbar.make(findViewById(android.R.id.content),
-                    "No patient selected!",
-                    Snackbar.LENGTH_SHORT).show();
-            finish();
+            // Show reports for all patients assigned to the doctor
+            SharedPreferences preferences = getSharedPreferences("PREFERENCE", android.content.Context.MODE_PRIVATE);
+            String doctorId = preferences.getString("userId", "");
+
+            if (!doctorId.isEmpty()) {
+                patientNameText.setText("Recent Patient Reports");
+
+                try {
+                    SharedPreferences shownNotificationsPrefs = getSharedPreferences("SHOWN_NOTIFICATIONS_PREFS", MODE_PRIVATE);
+                    Set<String> shownNotificationIds = shownNotificationsPrefs.getStringSet("shown_notification_ids_" + doctorId, new HashSet<>());
+
+                    List<Notification> notifications = dbHelper.getNotificationsForUser(doctorId);
+
+                    List<String> recentPatientNames = new ArrayList<>();
+                    for (Notification notification : notifications) {
+                        if ("feedback_submitted".equals(notification.getType()) && 
+                            shownNotificationIds.contains(notification.getId())) {
+
+                            String message = notification.getMessage();
+                            int endIndex = message.indexOf(" has submitted");
+                            if (endIndex > 0) {
+                                String patientName = message.substring(0, endIndex);
+                                recentPatientNames.add(patientName);
+                            }
+                        }
+                    }
+
+                    List<User> patients = dbHelper.getPatientsForDoctor(doctorId);
+                    List<MedicalReport> allReports = new ArrayList<>();
+
+                    for (User patient : patients) {
+                        if (patient.getPatient() != null && 
+                            patient.getPatient().getName() != null && 
+                            recentPatientNames.contains(patient.getPatient().getName())) {
+
+                            List<MedicalReport> patientReports = dbHelper.getMedicalReportsForPatient(patient.getUserId());
+                            allReports.addAll(patientReports);
+                        }
+                    }
+
+                    Collections.sort(allReports, (r1, r2) -> {
+                        try {
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+                            LocalDateTime date1 = LocalDateTime.parse(r1.getReportDate(), formatter);
+                            LocalDateTime date2 = LocalDateTime.parse(r2.getReportDate(), formatter);
+                            return date2.compareTo(date1); // Newest first
+                        } catch (Exception e) {
+                            return 0;
+                        }
+                    });
+
+                    if (allReports.isEmpty()) {
+                        reportsRecyclerView.setVisibility(View.GONE);
+                        TextView noReportsText = new TextView(this);
+                        noReportsText.setText("No reports available");
+                        noReportsText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+                        ((ViewGroup) reportsRecyclerView.getParent()).addView(noReportsText);
+                    } else {
+                        ReportAdapter adapter = new ReportAdapter(allReports);
+                        reportsRecyclerView.setAdapter(adapter);
+                    }
+                } catch (Exception e) {
+                    Log.e("MedicalReportsActivity", "Error loading medical reports", e);
+                    Snackbar.make(findViewById(android.R.id.content),
+                            "Error loading medical reports!",
+                            Snackbar.LENGTH_SHORT).show();
+                }
+            } else {
+                Snackbar.make(findViewById(android.R.id.content),
+                        "Doctor information not found!",
+                        Snackbar.LENGTH_SHORT).show();
+                finish();
+            }
         }
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);

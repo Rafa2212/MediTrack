@@ -1,13 +1,12 @@
 package com.example.myapplication;
 
-public class UserProfile {
+public class Patient {
     private String cnp;
     private final String name;
     private final int age;
     private final float height;
     private final float weight;
     private String lastMedicalReport;
-    private String specialty; // Doctor specialty (e.g., cardiologist, dermatologist)
 
     private float bodyFatPercentage;
     private int restingHeartRate;
@@ -39,15 +38,15 @@ public class UserProfile {
     private String vo2Max;
     private int healthScore;
     private String bodyType; // Ectomorph, Mesomorph, Endomorph, or hybrid types (combination)
+    private String gender; // male, female, or "don't want to specify"
 
-    public UserProfile(String name, int age, float height, float weight, String lastMedicalReport) {
+    public Patient(String name, int age, float height, float weight, String lastMedicalReport) {
         this.cnp = "";
         this.name = name;
         this.age = age;
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
-        this.specialty = "";
 
         this.bodyFatPercentage = 0;
         this.restingHeartRate = 0;
@@ -61,16 +60,16 @@ public class UserProfile {
         this.bodyType = "";
         this.bmiInterpretation = "";
         this.metabolicInterpretation = "";
+        this.gender = "don't want to specify"; // Default gender value
     }
 
-    public UserProfile(String cnp, String name, int age, float height, float weight, String lastMedicalReport) {
+    public Patient(String cnp, String name, int age, float height, float weight, String lastMedicalReport) {
         this.cnp = cnp;
         this.name = name;
         this.age = age;
         this.height = height;
         this.weight = weight;
         this.lastMedicalReport = lastMedicalReport;
-        this.specialty = "";
 
         this.bodyFatPercentage = 0;
         this.restingHeartRate = 0;
@@ -84,6 +83,7 @@ public class UserProfile {
         this.bodyType = "";
         this.bmiInterpretation = "";
         this.metabolicInterpretation = "";
+        this.gender = "don't want to specify"; // Default gender value
     }
 
 
@@ -180,10 +180,10 @@ public class UserProfile {
     }
 
     public void updateAverageValues(int averageSteps, int averageSedentaryMinutes, double averageBreathingRate,
-                                    double averageDailyRmssd, double averageDeepRmssd, int minutesAfterWakeup,
-                                    int minutesAwake, int minutesToFallAsleep, int restlessCount, int restlessDuration,
-                                    int timeInBed, int deepSleep, int lightSleep, int remSleep, int wakeSleep,
-                                    int averageActiveZoneMinutes, String vo2Max) {
+                                   double averageDailyRmssd, double averageDeepRmssd, int minutesAfterWakeup,
+                                   int minutesAwake, int minutesToFallAsleep, int restlessCount, int restlessDuration,
+                                   int timeInBed, int deepSleep, int lightSleep, int remSleep, int wakeSleep,
+                                   int averageActiveZoneMinutes, String vo2Max) {
         this.averageSteps = averageSteps;
         this.averageSedentaryMinutes = averageSedentaryMinutes;
         this.averageBreathingRate = averageBreathingRate;
@@ -295,129 +295,98 @@ public class UserProfile {
         this.bodyType = bodyType;
     }
 
-    /**
-     * Gets the doctor's specialty
-     * @return The doctor's specialty
-     */
-    public String getSpecialty() {
-        return specialty;
-    }
-
-    /**
-     * Sets the doctor's specialty
-     * @param specialty The doctor's specialty
-     */
-    public void setSpecialty(String specialty) {
-        this.specialty = specialty;
-    }
-
-    /**
-     * Gets the BMI interpretation
-     * @return The BMI interpretation
-     */
     public String getBmiInterpretation() {
         return bmiInterpretation;
     }
 
-    /**
-     * Sets the BMI interpretation
-     * @param bmiInterpretation The BMI interpretation
-     */
     public void setBmiInterpretation(String bmiInterpretation) {
         this.bmiInterpretation = bmiInterpretation;
     }
 
-    /**
-     * Gets the Metabolic Balance interpretation
-     * @return The Metabolic Balance interpretation
-     */
     public String getMetabolicInterpretation() {
         return metabolicInterpretation;
     }
 
-    /**
-     * Sets the Metabolic Balance interpretation
-     * @param metabolicInterpretation The Metabolic Balance interpretation
-     */
     public void setMetabolicInterpretation(String metabolicInterpretation) {
         this.metabolicInterpretation = metabolicInterpretation;
     }
 
-    /**
-     * Gets all Fitbit data in a formatted string, including only non-zero values
-     * @return A formatted string with all non-zero Fitbit data
-     */
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
     public String getFitbitDataSummary() {
         StringBuilder summary = new StringBuilder();
+        summary.append("Fitbit Data Summary:\n\n");
 
         if (averageSteps > 0) {
-            summary.append("Steps: ").append(averageSteps).append("\n");
+            summary.append("Average Steps: ").append(averageSteps).append("\n");
         }
 
         if (averageSedentaryMinutes > 0) {
-            summary.append("Sedentary Minutes: ").append(averageSedentaryMinutes).append("\n");
-        }
-
-        if (averageBreathingRate > 0) {
-            summary.append("Breathing Rate: ").append(averageBreathingRate).append("\n");
-        }
-
-        if (averageDailyRmssd > 0) {
-            summary.append("Daily RMSSD: ").append(averageDailyRmssd).append("\n");
-        }
-
-        if (averageDeepRmssd > 0) {
-            summary.append("Deep RMSSD: ").append(averageDeepRmssd).append("\n");
-        }
-
-        if (minutesAfterWakeup > 0) {
-            summary.append("Minutes After Wakeup: ").append(minutesAfterWakeup).append("\n");
-        }
-
-        if (minutesAwake > 0) {
-            summary.append("Minutes Awake: ").append(minutesAwake).append("\n");
-        }
-
-        if (minutesToFallAsleep > 0) {
-            summary.append("Minutes To Fall Asleep: ").append(minutesToFallAsleep).append("\n");
-        }
-
-        if (restlessCount > 0) {
-            summary.append("Restless Count: ").append(restlessCount).append("\n");
-        }
-
-        if (restlessDuration > 0) {
-            summary.append("Restless Duration: ").append(restlessDuration).append("\n");
-        }
-
-        if (timeInBed > 0) {
-            summary.append("Time In Bed: ").append(timeInBed).append("\n");
-        }
-
-        if (deepSleep > 0) {
-            summary.append("Deep Sleep: ").append(deepSleep).append("\n");
-        }
-
-        if (lightSleep > 0) {
-            summary.append("Light Sleep: ").append(lightSleep).append("\n");
-        }
-
-        if (remSleep > 0) {
-            summary.append("REM Sleep: ").append(remSleep).append("\n");
-        }
-
-        if (wakeSleep > 0) {
-            summary.append("Wake Sleep: ").append(wakeSleep).append("\n");
+            int hours = averageSedentaryMinutes / 60;
+            int minutes = averageSedentaryMinutes % 60;
+            summary.append("Average Sedentary Time: ").append(hours).append("h ").append(minutes).append("m\n");
         }
 
         if (averageActiveZoneMinutes > 0) {
-            summary.append("Active Zone Minutes: ").append(averageActiveZoneMinutes).append("\n");
+            summary.append("Average Active Zone Minutes: ").append(averageActiveZoneMinutes).append("\n");
+        }
+
+        if (averageBreathingRate > 0) {
+            summary.append("Average Breathing Rate: ").append(String.format("%.1f", averageBreathingRate)).append(" breaths/min\n");
+        }
+
+        if (averageDailyRmssd > 0) {
+            summary.append("Average Daily HRV (RMSSD): ").append(String.format("%.1f", averageDailyRmssd)).append(" ms\n");
+        }
+
+        if (averageDeepRmssd > 0) {
+            summary.append("Average Deep Sleep HRV (RMSSD): ").append(String.format("%.1f", averageDeepRmssd)).append(" ms\n");
+        }
+
+        if (deepSleep > 0 || lightSleep > 0 || remSleep > 0 || wakeSleep > 0) {
+            summary.append("\nSleep Data:\n");
+
+            if (deepSleep > 0) {
+                int hours = deepSleep / 60;
+                int minutes = deepSleep % 60;
+                summary.append("Deep Sleep: ").append(hours).append("h ").append(minutes).append("m\n");
+            }
+
+            if (lightSleep > 0) {
+                int hours = lightSleep / 60;
+                int minutes = lightSleep % 60;
+                summary.append("Light Sleep: ").append(hours).append("h ").append(minutes).append("m\n");
+            }
+
+            if (remSleep > 0) {
+                int hours = remSleep / 60;
+                int minutes = remSleep % 60;
+                summary.append("REM Sleep: ").append(hours).append("h ").append(minutes).append("m\n");
+            }
+
+            if (wakeSleep > 0) {
+                int hours = wakeSleep / 60;
+                int minutes = wakeSleep % 60;
+                summary.append("Awake: ").append(hours).append("h ").append(minutes).append("m\n");
+            }
+
+            if (timeInBed > 0) {
+                int hours = timeInBed / 60;
+                int minutes = timeInBed % 60;
+                summary.append("Total Time in Bed: ").append(hours).append("h ").append(minutes).append("m\n");
+            }
         }
 
         if (vo2Max != null && !vo2Max.isEmpty()) {
-            summary.append("VO2 Max: ").append(vo2Max).append("\n");
+            summary.append("\nVO2 Max: ").append(vo2Max).append("\n");
         }
 
-        return summary.toString().trim();
+        return summary.toString();
     }
 }

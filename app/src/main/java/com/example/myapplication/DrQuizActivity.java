@@ -327,11 +327,12 @@ public class DrQuizActivity extends AppCompatActivity {
 
         if (!userId.isEmpty()) {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
-            UserProfile userProfile = dbHelper.getUserProfile(userId);
+            Object profile = dbHelper.getUserProfile(userId);
 
-            if (userProfile != null) {
-                userProfile.setBodyType(bodyType);
-                dbHelper.insertOrUpdateProfile(userId, userProfile);
+            if (profile instanceof Patient) {
+                Patient patient = (Patient) profile;
+                patient.setBodyType(bodyType);
+                dbHelper.insertOrUpdateProfile(userId, patient);
             }
         }
     }

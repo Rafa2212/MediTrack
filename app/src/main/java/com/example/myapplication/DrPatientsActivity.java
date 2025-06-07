@@ -47,10 +47,10 @@ import java.util.regex.Pattern;
  */
 public class DrPatientsActivity extends BaseActivity {
     private DatabaseHelper dbHelper;
-    private TextView patientName, patientAge, patientHeight, patientWeight, patientMedicalReport, patientHealthScore;
+    private TextView patientAge, patientHeight, patientWeight, patientMedicalReport, patientHealthScore;
     private String currentPatientId;
     private static final String PREF_LAST_PATIENT_ID = "last_patient_id";
-    private static final String TAG = "DoctorPatientsActivity";
+    private static final String TAG = "DrPatientsActivity";
 
     private LinearLayout patientSelectorLayout;
     private List<User> patientsList;
@@ -127,7 +127,7 @@ public class DrPatientsActivity extends BaseActivity {
 
                 if (query.length() >= 2) {
                     searchRunnable = () -> searchIcd10Codes(query);
-                    handler.postDelayed(searchRunnable, 300); // 300ms delay
+                    handler.postDelayed(searchRunnable, 300);
                 }
             }
         });
@@ -166,7 +166,7 @@ public class DrPatientsActivity extends BaseActivity {
 
                 String checkQuery = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES +
                         " WHERE " + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND " +
-                        DatabaseHelper.COLUMN_DISEASE_ID_FK + "=? AND " +
+                        DatabaseHelper.COLUMN_USER_DISEASE_ID + "=? AND " +
                         DatabaseHelper.COLUMN_DOCTOR_ID_FK + "=?";
                 String[] checkArgs = {currentPatientId, String.valueOf(disease.getDiseaseId()), doctorId1};
                 Cursor cursor = db.rawQuery(checkQuery, checkArgs);
@@ -175,7 +175,7 @@ public class DrPatientsActivity extends BaseActivity {
                     cursor.close();
 
                     String whereClause = DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + "=? AND "
-                            + DatabaseHelper.COLUMN_DISEASE_ID_FK + "=? AND "
+                            + DatabaseHelper.COLUMN_USER_DISEASE_ID + "=? AND "
                             + DatabaseHelper.COLUMN_DOCTOR_ID_FK + "=?";
                     String[] whereArgs = {currentPatientId, String.valueOf(disease.getDiseaseId()), doctorId1};
                     int deletedRows = db.delete(DatabaseHelper.TABLE_USER_DISEASES, whereClause, whereArgs);
@@ -297,8 +297,8 @@ public class DrPatientsActivity extends BaseActivity {
      */
     @SuppressLint("SetTextI18n")
     private void displayPatientInfo(User patient) {
-        if (patient != null && patient.getUserProfile() != null) {
-            UserProfile profile = patient.getUserProfile();
+        if (patient != null && patient.getPatient() != null) {
+            Patient profile = patient.getPatient();
             patientAge.setText(String.valueOf(profile.getAge()));
 
             float height = profile.getHeight();
@@ -388,12 +388,9 @@ public class DrPatientsActivity extends BaseActivity {
 
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
-        String query = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES + " ud "
-                + "INNER JOIN " + DatabaseHelper.TABLE_DISEASES + " d "
-                + "ON ud." + DatabaseHelper.COLUMN_DISEASE_ID_FK + " = d."
-                + DatabaseHelper.COLUMN_DISEASE_ID + " WHERE (d."
-                + DatabaseHelper.COLUMN_ICD10 + " =?)"
-                + " AND ud." + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + " =?";
+        String query = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES 
+                + " WHERE " + DatabaseHelper.COLUMN_ICD10 + " =? AND " 
+                + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + " =?";
 
         String[] selectionArgs = {icd10Code, currentPatientId};
         Cursor cursor = db.rawQuery(query, selectionArgs);
@@ -411,7 +408,7 @@ public class DrPatientsActivity extends BaseActivity {
                 String doctorId = prefs.getString("userId", "");
 
                 if (!doctorId.isEmpty()) {
-                    UserProfile doctorProfile = dbHelper.getUserProfile(doctorId);
+                    Doctor doctorProfile = (Doctor) dbHelper.getUserProfile(doctorId);
                     String specialty = doctorProfile.getSpecialty();
 
                     if (!ICDSpecialityMapper.isCodeValidForSpecialty(icd10Code, specialty)) {
@@ -430,15 +427,10 @@ public class DrPatientsActivity extends BaseActivity {
                                 "The ICD-10 code is invalid or incomplete, please verify.", 
                                 Snackbar.LENGTH_LONG).show();
                     } else {
-                        ContentValues values = new ContentValues();
-                        values.put(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION, disease);
-                        values.put(DatabaseHelper.COLUMN_ICD10, icd10Code);
-
-                        long newRowId = db.insert(DatabaseHelper.TABLE_DISEASES, null, values);
-
                         ContentValues userDiseaseValues = new ContentValues();
                         userDiseaseValues.put(DatabaseHelper.COLUMN_USER_ID_FK_DISEASE, currentPatientId);
-                        userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_ID_FK, newRowId);
+                        userDiseaseValues.put(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION, disease);
+                        userDiseaseValues.put(DatabaseHelper.COLUMN_ICD10, icd10Code);
                         if (!doctorId.isEmpty()) {
                             userDiseaseValues.put(DatabaseHelper.COLUMN_DOCTOR_ID_FK, doctorId);
                         }
@@ -470,7 +462,7 @@ public class DrPatientsActivity extends BaseActivity {
                                         break;
                                     }
                                 } catch (Exception e) {
-                                    Log.e("DoctorPatientsActivity", "Error processing entry", e);
+                                    Log.e(TAG, "Error processing entry", e);
                                 }
                             }
                         }
@@ -482,7 +474,7 @@ public class DrPatientsActivity extends BaseActivity {
 
                             executor.execute(() -> {
                                 try {
-                                    UserProfile userProfile = dbHelper.getUserProfile(currentPatientId);
+                                    Patient userProfile = (Patient) dbHelper.getUserProfile(currentPatientId);
 
                                     String prompt = userProfile.getName() + " is a " + userProfile.getAge() + " year old individual with a height of " + userProfile.getHeight() + " cm and a weight of " + userProfile.getWeight() + " kg. They have been diagnosed with a disease coded as " + icd10Code + " (ICD10). The patient has been prescribed a treatment and medication by their doctor.";
                                     prompt += "\n\n Please provide a short summary on cautions and advice specific to the patient's profile:";
@@ -505,14 +497,16 @@ public class DrPatientsActivity extends BaseActivity {
                                             result.getChoices().get(0).getMessage().getContent().replace('*', ' ').replace(
                                                     '#', ' ');
                                     String key = "Disease#" + icd10Code + "#" + disease;
-                                    long diseaseId = dbHelper.insertOnSession(currentPatientId, key, diseaseResponse);
+
+                                    userDiseaseValues.put("interpretation", diseaseResponse);
+                                    userDiseaseValues.put("disease_key", key);
+
+                                    long diseaseId = db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
 
                                     SharedPreferences.Editor editor =
                                             getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
                                     editor.putString(key, String.valueOf(diseaseId));
                                     editor.apply();
-
-                                    db.insert(DatabaseHelper.TABLE_USER_DISEASES, null, userDiseaseValues);
 
                                     handler.post(() -> {
                                         dialog.dismiss();

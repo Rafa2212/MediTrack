@@ -64,12 +64,12 @@ public class Disease {
         return diagnosisDate;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public void setDiagnosisDate(String diagnosisDate) {
         this.diagnosisDate = diagnosisDate;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getDoctorId() {

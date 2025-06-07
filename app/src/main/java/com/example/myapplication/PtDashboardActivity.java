@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.example.myapplication.NotificationUtils;
 
 /**
  * Activity that displays the user's dashboard with health information and disease interpretations.
@@ -29,8 +31,10 @@ public class PtDashboardActivity extends BaseActivity {
      * @param userId The user ID
      * @param userProfile The user's profile
      * @return true if the patient can submit a weekly report, false otherwise
+     * @deprecated Use {@link NotificationUtils} instead.
      */
-    private boolean isWeeklyFeedbackAvailable(String userId, UserProfile userProfile) {
+    @Deprecated
+    private boolean isWeeklyFeedbackAvailable(String userId, Patient userProfile) {
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
         MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(userId);
 
@@ -66,9 +70,9 @@ public class PtDashboardActivity extends BaseActivity {
 
     /**
      * Checks if the user is eligible for a weekly report notification and displays it if needed.
-     * This method retrieves the user ID from shared preferences, checks if the user can submit
-     * a weekly report, and shows a notification dialog if the user is eligible and hasn't
-     * already been notified.
+     * This method retrieves the user ID from shared preferences and uses NotificationUtils
+     * to check if the user can submit a weekly report and show a notification if eligible.
+     * The notification is shown as a popup every time the patient logs in if feedback is not registered for the week.
      */
     public void checkForNotifications() {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
@@ -81,21 +85,27 @@ public class PtDashboardActivity extends BaseActivity {
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
         User user = dbHelper.getUser(userId);
 
-        if (user == null || user.getUserProfile() == null) {
+        if (user == null || user.getPatient() == null) {
             return;
         }
 
-        boolean canSubmitReport = isWeeklyFeedbackAvailable(userId, user.getUserProfile());
+        // Check if the patient can submit a weekly report
+        boolean canSubmitReport = NotificationUtils.isWeeklyFeedbackAvailable(this, userId, user.getPatient());
 
-        SharedPreferences notificationPrefs = getSharedPreferences("NOTIFICATION_PREFS", MODE_PRIVATE);
-        boolean notificationShown = notificationPrefs.getBoolean("notification_shown_" + userId, false);
+        if (canSubmitReport) {
+            // Save notification to database if needed
+            NotificationUtils.checkAndSendNotificationForPatient(this, userId);
 
-        if (canSubmitReport && !notificationShown) {
+            // Show popup notification
             String message = "Your weekly report is now available to submit. Please log your feedback.";
-            dbHelper.saveNotification(userId, message, "timer_expired");
+            PopupNotificationHelper popupNotificationHelper = new PopupNotificationHelper(this);
+            popupNotificationHelper.showPatientNotification(message, this);
+        }
 
-            NotificationDialog dialog = new NotificationDialog(this, userId);
-            dialog.show();
+        // Also schedule the next notification based on the last report date
+        String lastReportDate = user.getPatient().getLastMedicalReport();
+        if (lastReportDate != null && !lastReportDate.isEmpty()) {
+            NotificationUtils.scheduleNextFeedbackNotification(this, userId, lastReportDate);
         }
     }
 
@@ -128,109 +138,26 @@ public class PtDashboardActivity extends BaseActivity {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = preferences.getString("userId", "");
 
-        if (!userId.isEmpty()) {
-            DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
-            List<User> assignedDoctors = dbHelper.getDoctorsForPatient(userId);
-
-            TextView assignedDoctorsTextView = findViewById(R.id.assigned_doctors_text);
-
-            if (assignedDoctors != null && !assignedDoctors.isEmpty()) {
-                StringBuilder doctorsText = new StringBuilder("Your assigned doctors: ");
-                for (int i = 0; i < assignedDoctors.size(); i++) {
-                    User doctor = assignedDoctors.get(i);
-                    if (doctor.getUserProfile() != null) {
-                        doctorsText.append(doctor.getUserProfile().getName());
-                        if (i < assignedDoctors.size() - 1) {
-                            doctorsText.append(", ");
-                        }
-                    }
-                }
-                assignedDoctorsTextView.setText(doctorsText.toString());
-                assignedDoctorsTextView.setVisibility(View.VISIBLE);
-            } else {
-                assignedDoctorsTextView.setText("You don't have any assigned doctors yet.");
-                assignedDoctorsTextView.setVisibility(View.VISIBLE);
-            }
-        }
-
-        Map<String, ?> allEntries = preferences.getAll();
-
-        LocalDateTime mostRecentBMI = LocalDateTime.MIN;
-        String mostRecentBMIKey = "";
-        for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-            try {
-                String key = entry.getKey();
-                if (key == null) continue;
-
-                String[] parts = key.split("#");
-                if (parts.length >= 3 && parts[0].contains("BMI")) {
-                    LocalDateTime currentDateTime = LocalDateTime.parse(parts[2]);
-                    if (currentDateTime.isAfter(mostRecentBMI)) {
-                        mostRecentBMI = currentDateTime;
-                        mostRecentBMIKey = key;
-                    }
-                }
-            } catch (Exception e) {
-                Log.e("DashboardActivity", "Error processing BMI entry", e);
-            }
-        }
-
-        LocalDateTime mostRecentMetabolic = LocalDateTime.MIN;
-        String mostRecentMetabolicKey = "";
-        for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-            try {
-                String key = entry.getKey();
-                if (key == null) continue;
-
-                String[] parts = key.split("#");
-                if (parts.length >= 3 && parts[0].contains("Metabolic")) {
-                    LocalDateTime currentDateTime = LocalDateTime.parse(parts[2]);
-                    if (currentDateTime.isAfter(mostRecentMetabolic)) {
-                        mostRecentMetabolic = currentDateTime;
-                        mostRecentMetabolicKey = key;
-                    }
-                }
-            } catch (Exception e) {
-                Log.e("DashboardActivity", "Error processing Metabolic entry", e);
-            }
-        }
-
         ArrayList<Disease> diseasesList = new ArrayList<>();
         ArrayList<ProfileWidget> profileWidgetsList = new ArrayList<>();
 
         try (DatabaseHelper dbHelper = new DatabaseHelper(this)) {
+            // Get the user's profile from the database
+            User user = dbHelper.getUser(userId);
+            Patient userProfile = (user != null) ? user.getPatient() : null;
+
+            // Get BMI interpretation from UserProfile
             String bInterpretation;
-            if (!mostRecentBMIKey.isEmpty()) {
-                try {
-                    long bmiId = Long.parseLong(preferences.getString(mostRecentBMIKey, ""));
-                    Session curr_bmi = dbHelper.getSession(bmiId);
-                    if (curr_bmi != null) {
-                        bInterpretation = curr_bmi.getValue();
-                    } else {
-                        bInterpretation = "No BMI interpretation available yet. Please update your profile to generate one.";
-                    }
-                } catch (Exception e) {
-                    Log.e("DashboardActivity", "Error getting BMI interpretation", e);
-                    bInterpretation = "No BMI interpretation available yet. Please update your profile to generate one.";
-                }
+            if (userProfile != null && userProfile.getBmiInterpretation() != null && !userProfile.getBmiInterpretation().isEmpty()) {
+                bInterpretation = userProfile.getBmiInterpretation();
             } else {
                 bInterpretation = "No BMI interpretation available yet. Please update your profile to generate one.";
             }
 
+            // Get Metabolic Balance interpretation from UserProfile
             String metabolicInterpretation;
-            if (!mostRecentMetabolicKey.isEmpty()) {
-                try {
-                    long metabolicId = Long.parseLong(preferences.getString(mostRecentMetabolicKey, ""));
-                    Session curr_metabolic = dbHelper.getSession(metabolicId);
-                    if (curr_metabolic != null) {
-                        metabolicInterpretation = curr_metabolic.getValue();
-                    } else {
-                        metabolicInterpretation = "No Metabolic Balance interpretation available yet. Please update your profile with additional health metrics to generate one.";
-                    }
-                } catch (Exception e) {
-                    Log.e("DashboardActivity", "Error getting Metabolic interpretation", e);
-                    metabolicInterpretation = "No Metabolic Balance interpretation available yet. Please update your profile with additional health metrics to generate one.";
-                }
+            if (userProfile != null && userProfile.getMetabolicInterpretation() != null && !userProfile.getMetabolicInterpretation().isEmpty()) {
+                metabolicInterpretation = userProfile.getMetabolicInterpretation();
             } else {
                 metabolicInterpretation = "No Metabolic Balance interpretation available yet. Please update your profile with additional health metrics to generate one.";
             }
@@ -247,81 +174,58 @@ public class PtDashboardActivity extends BaseActivity {
                     "Metabolic",
                     getString(R.string.metabolic_title),
                     getString(R.string.metabolic_description),
-                    R.drawable.background_bmi,
+                    R.drawable.background_metabolic,
                     metabolicInterpretation
             ));
 
-            List<Disease> diseases = dbHelper.getDiseasesForPatient(userId);
+            // Get diseases with interpretations directly from the database
+            SQLiteDatabase db = dbHelper.getReadableDatabase();
+            String query = "SELECT " + 
+                    DatabaseHelper.COLUMN_ICD10 + ", " + 
+                    DatabaseHelper.COLUMN_DISEASE_DESCRIPTION + ", " + 
+                    "interpretation " +
+                    "FROM " + DatabaseHelper.TABLE_USER_DISEASES + 
+                    " WHERE " + DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + " = ?";
 
-            for (Disease disease : diseases) {
-                String diseaseKey = "Disease#" + disease.getICD10() + "#" + disease.getName();
-                String interpretationId = preferences.getString(diseaseKey, "");
-                String interpretation = "";
+            Cursor cursor = db.rawQuery(query, new String[]{userId});
 
-                if (!interpretationId.isEmpty()) {
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    @SuppressLint("Range")
+                    String icd10 = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_ICD10));
+                    @SuppressLint("Range")
+                    String diseaseName = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_DISEASE_DESCRIPTION));
+
+                    String interpretation = "";
                     try {
-                        Session diseaseSession = dbHelper.getSession(Long.parseLong(interpretationId));
-                        if (diseaseSession != null) {
-                            interpretation = diseaseSession.getValue();
+                        @SuppressLint("Range")
+                        String interpretationFromDb = cursor.getString(cursor.getColumnIndex("interpretation"));
+                        if (interpretationFromDb != null && !interpretationFromDb.isEmpty()) {
+                            interpretation = interpretationFromDb;
                         }
                     } catch (Exception e) {
-                        Log.e("DashboardActivity", "Error getting disease interpretation", e);
+                        Log.e("DashboardActivity", "Error getting interpretation from database", e);
                     }
-                }
 
-                if (interpretation.isEmpty()) {
-                    interpretation = "No detailed information available for this disease.";
-                }
+                    if (interpretation.isEmpty()) {
+                        interpretation = "No detailed information available for this disease.";
+                    }
 
-                Disease diseaseWithInterpretation = new Disease(disease.getICD10(), disease.getName(), interpretation);
-                diseasesList.add(diseaseWithInterpretation);
-            }
-
-            for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
-                try {
-                    String key = entry.getKey();
-                    if (key == null) continue;
-
-                    String[] parts = key.split("#");
-                    if (parts.length >= 3 && parts[0].equals("Disease")) {
-                        boolean alreadyExists = false;
-                        for (Disease disease : diseasesList) {
-                            if (disease.getICD10().equals(parts[1])) {
-                                alreadyExists = true;
-                                break;
-                            }
-                        }
-
-                        if (!alreadyExists) {
-                            SQLiteDatabase verifyDb = dbHelper.getReadableDatabase();
-                            String verifyQuery = "SELECT * FROM " + DatabaseHelper.TABLE_USER_DISEASES + " ud " +
-                                    "INNER JOIN " + DatabaseHelper.TABLE_DISEASES + " d ON ud." + 
-                                    DatabaseHelper.COLUMN_DISEASE_ID_FK + " = d." + DatabaseHelper.COLUMN_DISEASE_ID + 
-                                    " WHERE d." + DatabaseHelper.COLUMN_ICD10 + " = ? AND ud." + 
-                                    DatabaseHelper.COLUMN_USER_ID_FK_DISEASE + " = ?";
-
-                            Cursor verifyCursor = verifyDb.rawQuery(verifyQuery, new String[]{parts[1], userId});
-                            boolean diseaseExists = verifyCursor != null && verifyCursor.getCount() > 0;
-
-                            if (verifyCursor != null) {
-                                verifyCursor.close();
-                            }
-
-                            if (diseaseExists) {
-                                long diseaseId = Long.parseLong(preferences.getString(key, ""));
-                                Session curr_disease = dbHelper.getSession(diseaseId);
-                                if (curr_disease != null) {
-                                    String diseaseInterpretation = curr_disease.getValue();
-                                    if (diseaseInterpretation != null) {
-                                        diseasesList.add(new Disease(parts[1], parts[2], diseaseInterpretation));
-                                    }
-                                }
-                            }
+                    // Check if this disease is already in the list
+                    boolean alreadyExists = false;
+                    for (Disease existingDisease : diseasesList) {
+                        if (existingDisease.getICD10().equals(icd10)) {
+                            alreadyExists = true;
+                            break;
                         }
                     }
-                } catch (Exception e) {
-                    Log.e("DashboardActivity", "Error processing disease entry", e);
+
+                    if (!alreadyExists) {
+                        Disease diseaseWithInterpretation = new Disease(icd10, diseaseName, interpretation);
+                        diseasesList.add(diseaseWithInterpretation);
+                    }
                 }
+                cursor.close();
             }
         } catch (Exception e) {
             Log.e("ErrorTag", "DatabaseHelper instantiation failed", e);

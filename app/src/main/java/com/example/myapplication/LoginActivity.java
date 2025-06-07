@@ -11,6 +11,8 @@ import android.widget.EditText;
 import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.snackbar.Snackbar;
 
+import java.util.List;
+
 /**
  * Activity that handles user authentication and login.
  * This activity verifies user credentials, manages user sessions, and navigates
@@ -171,26 +173,17 @@ public class LoginActivity extends AppCompatActivity {
         editor.putString("last_username", username);
         editor.apply();
 
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.query(DatabaseHelper.TABLE_SHAREDPREF,
-                new String[] {DatabaseHelper.COLUMN_SHAREDPREF_ID},
-                DatabaseHelper.COLUMN_SHAREDPREF_USER_ID + "=?", new String[] {userId}, null, null, null);
+        // Query the user_diseases table directly to get the diseases for this user
+        List<Disease> diseases = dbHelper.getDiseasesForPatient(userId);
 
-        if (cursor != null) {
-            while (cursor.moveToNext()) {
-                @SuppressLint("Range")
-                long idFromDB = cursor.getLong(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_ID));
-
-                Session session = dbHelper.getSession(idFromDB);
-                if (session != null) {
-                    String keyFromDB = session.getKeyString();
-
-                    editor.putString(keyFromDB, String.valueOf(idFromDB));
-                    editor.apply();
-                }
-            }
-            cursor.close();
+        // For each disease, create a key in the format "Disease#icd10Code#diseaseName"
+        // and store the disease ID in SharedPreferences
+        for (Disease disease : diseases) {
+            String key = "Disease#" + disease.getICD10() + "#" + disease.getName();
+            editor.putString(key, String.valueOf(disease.getDiseaseId()));
         }
+
+        editor.apply();
     }
 
     /**

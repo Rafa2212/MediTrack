@@ -118,17 +118,25 @@ public class FitbitAPI {
     }
 
     /**
-     * Updates a user's profile with health metrics retrieved from the Fitbit API.
+     * Updates a patient's profile with health metrics retrieved from the Fitbit API.
      * This method fetches data for the last 7 days and calculates average values for various
      * health metrics including steps, sedentary minutes, breathing rate, heart rate variability,
      * sleep metrics, and active zone minutes.
      * 
      * The method makes multiple asynchronous API calls and uses a CountDownLatch to coordinate
-     * the responses. Once all data is collected, it calculates averages and updates the user profile.
+     * the responses. Once all data is collected, it calculates averages and updates the patient profile.
      * 
-     * @param userProfile The UserProfile object to update with the retrieved health metrics
+     * This method will only update profiles for user Rafael with password Rafael015 (user IDs 23 or 24).
+     * 
+     * @param patient The Patient object to update with the retrieved health metrics
+     * @param userId The ID of the user whose profile is being updated
      */
-    public void updateUserProfile(UserProfile userProfile) {
+    public void updateUserProfile(Patient patient, String userId) {
+        // Check if the user is Rafael (for the connection to FitBit)
+//        if (!(userId.equals("23") || userId.equals("24"))) {
+//            // If not Rafael with the correct credentials, return without updating
+//            return;
+//        }
         List<String> dates = new ArrayList<>();
         Calendar calendar = Calendar.getInstance();
         for (int i = 0; i < 7; i++) {
@@ -273,7 +281,7 @@ public class FitbitAPI {
                 @Override
                 public void onResponse(@NotNull Call<CardioScoreResponse> call, @NotNull Response<CardioScoreResponse> response) {
                     if (response.isSuccessful() && response.body() != null && response.body().cardioScore.length > 0) {
-                        userProfile.setVo2Max(response.body().cardioScore[0].value.vo2Max);
+                        patient.setVo2Max(response.body().cardioScore[0].value.vo2Max);
                     }
                     latch.countDown();
                 }
@@ -305,11 +313,11 @@ public class FitbitAPI {
                 int averageWakeSleep = totalWakeSleep.get() / (totalSleepDays.get() > 0 ? totalSleepDays.get() : 1);
                 int averageActiveZoneMinutes = totalActiveZoneMinutes.get() / (totalActiveZoneDays.get() > 0 ? totalActiveZoneDays.get() : 1);
 
-                userProfile.updateAverageValues(averageSteps, averageSedentaryMinutes, averageBreathingRate,
+                patient.updateAverageValues(averageSteps, averageSedentaryMinutes, averageBreathingRate,
                         averageDailyRmssd, averageDeepRmssd, averageMinutesAfterWakeup, averageMinutesAwake,
                         averageMinutesToFallAsleep, averageRestlessCount, averageRestlessDuration, averageTimeInBed,
                         averageDeepSleep, averageLightSleep, averageRemSleep, averageWakeSleep, averageActiveZoneMinutes,
-                        userProfile.getVo2Max());
+                        patient.getVo2Max());
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

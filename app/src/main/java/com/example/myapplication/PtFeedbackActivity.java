@@ -25,6 +25,7 @@ import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -35,12 +36,10 @@ import java.util.concurrent.Executors;
 
 /**
  * Activity for generating and submitting weekly health reports.
- * 
  * This activity allows patients to:
  * 1. Submit weekly health feedback about their general health and specific conditions
  * 2. View their previously generated health reports
  * 3. Track when they can submit their next report
- * 
  * The activity integrates with Fitbit API to collect health metrics and uses OpenAI
  * to generate comprehensive health reports based on the collected data and patient feedback.
  * These reports are saved as PDF files and can be viewed by both the patient and their doctors.
@@ -48,7 +47,6 @@ import java.util.concurrent.Executors;
 public class PtFeedbackActivity extends BaseActivity {
     /**
      * Initializes the activity, sets up UI components, and configures the weekly report submission functionality.
-     * 
      * This method:
      * 1. Sets up the bottom navigation
      * 2. Initializes input fields for general health and BMI assessment
@@ -94,10 +92,6 @@ public class PtFeedbackActivity extends BaseActivity {
 
         List<Disease> diseasesList = dbHelper.getDiseasesForPatient(curr_user);
 
-        if (!(diseasesList instanceof ArrayList)) {
-            diseasesList = new ArrayList<>(diseasesList);
-        }
-
         LinearLayout diseasesLinearLayout = findViewById(R.id.diseasesLinearLayout);
         for (Disease disease : diseasesList) {
             addDiseaseQuestion(diseasesLinearLayout, disease, states);
@@ -107,9 +101,8 @@ public class PtFeedbackActivity extends BaseActivity {
         Button buttonViewLastReport = findViewById(R.id.buttonViewLastReport);
         TextView textViewTimer = findViewById(R.id.textViewTimer);
 
-        // Check if user can submit a report
         if (user != null && user.getUserProfile() != null) {
-            UserProfile userProfile = user.getUserProfile();
+            Patient userProfile = user.getPatient();
 
             MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(curr_user);
 
@@ -190,10 +183,7 @@ public class PtFeedbackActivity extends BaseActivity {
                         break;
                     }
                 }
-            } else {
-                areAllFieldsCompleted = false;
             }
-
             if (TextUtils.isEmpty(firstQ) || TextUtils.isEmpty(BMIQ) || !areAllFieldsCompleted) {
                 Snackbar
                 .make(findViewById(android.R.id.content), "Please fill out all fields",
@@ -213,7 +203,7 @@ public class PtFeedbackActivity extends BaseActivity {
 
                 dialog.show();
 
-                UserProfile userProfile = dbHelper.getUserProfile(curr_user);
+                Patient userProfile = (Patient) dbHelper.getUserProfile(curr_user);
 
                 float heightInMeters = userProfile.getHeight() / 100;
                 float BMI = userProfile.getWeight() / (heightInMeters * heightInMeters);
@@ -223,36 +213,35 @@ public class PtFeedbackActivity extends BaseActivity {
                 if (isOlder) {
 
                     FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
-                    fb.updateUserProfile(userProfile);
+                    fb.updateUserProfile(userProfile, curr_user);
 
                     ExecutorService executor = Executors.newSingleThreadExecutor();
 
                     Handler handler = new Handler(Looper.getMainLooper());
 
-                    OpenAiService service = new OpenAiService(TokenData.OPEN_AI_SERVICE_KEY.getToken());
+                    // Create OpenAiService with increased timeout settings to prevent SocketTimeoutException
+                    String token = TokenData.OPEN_AI_SERVICE_KEY.getToken();
+                    OpenAiService service = new OpenAiService(token, Duration.ofSeconds(120));
 
                     executor.execute(() -> {
                         try {
-                            String prepPrompt = "Consider that you will work at a medical report PDF document so please follow this structured format:";
-                            prepPrompt += "Please take into consideration to include the patient's username, the current date for the report and the title: Weekly Report as headers/title.";
-                            prepPrompt += "Now for the content please prepare yourself for some raw data got from a Fitbit API, prepare to interpret it the best for a user and doctor to understand his state";
-                            prepPrompt += "For the footer I want the pages counted so please take that in mind, I will provide you in the next prompt the user profile details for the patient and also his data for the week";
+                            String prepPrompt = "Consider that you will work at a medical report PDF document so please replace the data in the parentheses () with the values and replace the square brackets [] with your actual analysis based on the patient data provided in parentheses within each section. You should not have in the PDF [ ] or ( ) and neither text between them, all of them should be replaced with values or with ' ' if there is no value for that. For the { }, align the values before that like it is mentioned between { } and then remove the { } and the text in between. Use the data to provide meaningful insights and recommendations in a minimalist and useful way.";
 
-                            String userDataPrompt = generatePrompt(userProfile, BMI, firstQ, BMIQ, lstString);
+                            String lstRep = userProfile.getLastMedicalReport();
+
+                            String userDataPrompt = generatePrompt(userProfile, BMI, firstQ, BMIQ, lstString, lstRep);
 
                             String fullPrompt = prepPrompt + "\n\n" + userDataPrompt;
 
                             ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
-                                    .model("gpt-3.5-turbo")
+                                    .model("o4-mini")
                                     .messages(Collections.singletonList(
                                             new ChatMessage("user", fullPrompt)
                                     ))
-                                    .maxTokens(2000)
                                     .build();
 
                             ChatCompletionResult result = service.createChatCompletion(completionRequest);
 
-                            // Add null checks to prevent NullPointerException
                             final String weeklyReportResponse;
                             if (result != null && result.getChoices() != null && !result.getChoices().isEmpty()) {
                                 weeklyReportResponse = result.getChoices().get(0).getMessage().getContent();
@@ -264,7 +253,7 @@ public class PtFeedbackActivity extends BaseActivity {
                             String reportDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
 
                             PDFGeneration pdfGeneration = new PDFGeneration(getApplicationContext());
-                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse, curr_user, userProfile.getName());
+                            File pdfFile = pdfGeneration.createPDF(weeklyReportResponse, curr_user, userProfile);
 
                             handler.post(() -> {
                                 long reportId = dbHelper.saveMedicalReport(
@@ -279,12 +268,22 @@ public class PtFeedbackActivity extends BaseActivity {
                                     userProfile.setLastMedicalReport(reportDate);
                                     dbHelper.insertOrUpdateProfile(curr_user, userProfile);
 
+                                    NotificationUtils.scheduleNextFeedbackNotification(getApplicationContext(), curr_user, reportDate);
+
                                     List<User> doctors = dbHelper.getDoctorsForPatient(curr_user);
                                     if (doctors != null && !doctors.isEmpty()) {
                                         for (User doctor : doctors) {
                                             String patientName = userProfile.getName();
                                             String message = patientName + " has submitted their weekly feedback. A new medical report is available.";
                                             dbHelper.saveNotification(doctor.getUserId(), message, "feedback_submitted");
+
+                                            // Reset the notification flag for this doctor so they'll see the notification next time they log in
+                                            SharedPreferences notificationPrefs = getSharedPreferences("DOCTOR_NOTIFICATION_PREFS", MODE_PRIVATE);
+                                            SharedPreferences.Editor editor = notificationPrefs.edit();
+                                            editor.putBoolean("notification_shown_" + doctor.getUserId(), false);
+                                            editor.apply();
+
+                                            // No system notification is shown - will be displayed as popup when doctor opens the app
                                         }
                                     }
 
@@ -392,7 +391,6 @@ public class PtFeedbackActivity extends BaseActivity {
 
     /**
      * Extracts the user's input about their diseases from the UI components.
-     * 
      * This method iterates through all child views of the provided LinearLayout,
      * finds TextInputLayout components containing AutoCompleteTextView elements,
      * and collects the text input from each one into a list.
@@ -421,17 +419,9 @@ public class PtFeedbackActivity extends BaseActivity {
     }
 
     /**
-     * Generates a detailed prompt for the OpenAI API to create a comprehensive medical report.
-     * 
-     * This method constructs a structured prompt containing:
-     * 1. Patient information and health metrics
-     * 2. Fitbit activity data
-     * 3. Sleep data
-     * 4. Cardiovascular metrics
-     * 5. Patient's self-assessment of their health
-     * 6. Detailed instructions for report structure and formatting
-     *
-     * The prompt is formatted using String.format with values from the user's profile and input.
+     * Generates a prompt for the OpenAI API to create a medical report following a specific format.
+     * This method constructs a structured prompt containing patient information, Fitbit data,
+     * and health metrics formatted according to the required medical report structure.
      *
      * @param userProfile The user's profile containing health metrics and personal information
      * @param BMI The calculated Body Mass Index value
@@ -440,188 +430,52 @@ public class PtFeedbackActivity extends BaseActivity {
      * @param diseasesStates A list of the user's assessments of their disease states
      * @return A formatted string prompt for the OpenAI API
      */
-    public String generatePrompt(UserProfile userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates) {
+    public String generatePrompt(Patient userProfile, double BMI, String firstQ, String BMIQ, List<String> diseasesStates, String lastReport) {
+        String diseasesString = diseasesStates != null ? String.join(", ", diseasesStates) : "";
+
         @SuppressLint("DefaultLocale") String prompt = String.format(
-                "You are creating a comprehensive medical report PDF for a patient based on their Fitbit data and health metrics. " +
-                "You must structure your response as a formal medical report with clear, well-delimited sections using markdown headings " +
-                "(# for main title, ## for sections, ### for subsections).\n\n" +
+                "I. Introduction {subtitle aligned left}\n\n" +
+                "This weekly report provides a comprehensive overview of the patient state of the overall health over the last week. " +
+                "The report aims to ensure continuous monitoring of the doctors over the patient with chronic diseases and improvement in healthcare service delivery at MediTrack.\n\n" +
+                "**" + userProfile.getName() + "**\n\n\n\n" +
+                "II. Summary of the Feedback {subtitle aligned left}\n\n" +
+                "A. Patient Log {subsubtitle aligned left}\n\n" +
+                "[Analyze the patient response to feedback questions about physical, mental state and if there are any diseases to them] (Patient feedback - General health: %s, BMI self-assessment: %s, Current conditions: %s)\n\n\n\n" +
+                "B. BMI and Metabollic Balance {subsubtitle aligned left}\n\n" +
+                "[Analyze the patient feedback in concordance with the BMI and Metabollic Balance data you know about the patient and give some insights and find patterns for the patient to optimize] (Height: %.2f cm, Weight: %.2f kg, BMI: %.2f, Body Fat: %.1f%%, Blood Pressure: %d/%d mmHg, Blood Glucose: %.1f mg/dL, Cholesterol - Total: %.1f mg/dL, HDL: %.1f mg/dL, LDL: %.1f mg/dL, Health Score: %d/100)\n\n\n\n" +
+                "III. Observations and Trends {subtitle aligned left}\n\n" +
+                "[Fill the tables with real data comparing the previous medical reports and give reference to them and mention any uptrends / downtrends of the patient, find his challenges and offer some recommadations specific to his needs] (Heart rate variability - Daily RMSSD: %.2f ms, Deep RMSSD: %.2f ms, Cardio fitness score (VO2 max): %s); This is the last report: %s.\n\n\n\n" +
+                "IV. Conclusion {subtitle aligned left}\n\n" +
+                "A. Summary {subsubtitle aligned left}\n\n" +
+                "Throughout the week, [give some insights and summaries on the progress of the patient].\n\n" +
+                "B. Key Takeaways {subsubtitle aligned left}\n\n" +
+                "The challenges that have been identified require immediate and focused attention to guarantee the ongoing provision of high-quality medical services at MediTrack.\n\n" +
+                "C. Next Steps {subsubtitle aligned left}\n\n" +
+                "The implementation of the recommended action plan will undergo a thorough process of monitoring and review, which will be meticulously documented in the upcoming weekly report. " +
+                "This detailed assessment aims to evaluate the progress made thus far and identify any areas that might require further enhancements. " +
+                "If necessary, additional improvements will be suggested to ensure the action plan continues to be effective and efficient.",
 
-                "# PATIENT INFORMATION AND DATA\n" +
-                "Current date: %s\n" +
-                "Patient name: %s\n" +
-                "Age: %d years\n" +
-                "Height: %.2f cm\n" +
-                "Weight: %.2f kg\n" +
-                "BMI: %.2f\n" +
-                "Body Fat Percentage: %.1f%%\n" +
-                "Blood Pressure: %d/%d mmHg\n" +
-                "Resting Heart Rate: %d bpm\n" +
-                "Blood Glucose: %.1f mg/dL\n" +
-                "Cholesterol - Total: %.1f mg/dL\n" +
-                "Cholesterol - HDL: %.1f mg/dL\n" +
-                "Cholesterol - LDL: %.1f mg/dL\n" +
-                "Health Score: %d/100\n\n" +
 
-                "# FITBIT ACTIVITY DATA\n" +
-                "Average steps per day: %d steps\n" +
-                "Sedentary minutes per day: %d minutes\n" +
-                "Resting heart rate: %d bpm\n" +
-                "Average breathing rate: %.2f breaths per minute\n" +
-                "Active zone minutes per week: %d minutes\n\n" +
+                firstQ,
+                BMIQ,
+                diseasesString,
 
-                "# SLEEP DATA\n" +
-                "Minutes after wakeup: %d\n" +
-                "Minutes awake: %d\n" +
-                "Minutes to fall asleep: %d\n" +
-                "Restless events: %d\n" +
-                "Restless duration: %d minutes\n" +
-                "Total time in bed: %d minutes (%.1f hours)\n" +
-                "Deep sleep: %d minutes (%.1f hours)\n" +
-                "Light sleep: %d minutes (%.1f hours)\n" +
-                "REM sleep: %d minutes (%.1f hours)\n" +
-                "Wake during sleep: %d minutes\n" +
-                "Sleep efficiency: %.1f%%\n\n" +
-
-                "# CARDIOVASCULAR METRICS\n" +
-                "Heart rate variability (daily RMSSD): %.2f ms\n" +
-                "Heart rate variability (deep RMSSD): %.2f ms\n" +
-                "Cardio fitness score (VO2 max): %s\n\n" +
-
-                "# PATIENT FEEDBACK\n" +
-                "General health self-assessment: %s\n" +
-                "BMI self-assessment: %s\n" +
-                "Current conditions (ICD10) self-assessment: %s\n\n" +
-
-                "# REPORT STRUCTURE REQUIREMENTS\n" +
-                "Create a formal medical report with the following sections. Each section must be clearly delimited with proper headings and spacing:\n\n" +
-
-                "1. **MEDICAL REPORT HEADER**\n" +
-                "   - Title: \"WEEKLY HEALTH ASSESSMENT REPORT\"\n" +
-                "   - Patient: Full name\n" +
-                "   - Date: Current date formatted as Month Day, Year\n" +
-                "   - Report ID: Generate a unique report ID\n" +
-                "   - Physician: Dr. [Use 'Medic' as the physician name]\n\n" +
-
-                "2. **PATIENT PROFILE SUMMARY**\n" +
-                "   - Brief demographic information\n" +
-                "   - Key health indicators (BMI, blood pressure, etc.)\n" +
-                "   - Current health status overview\n\n" +
-
-                "3. **BMI AND BODY COMPOSITION ANALYSIS**\n" +
-                "   - Current BMI: %.2f (calculate exact category)\n" +
-                "   - Detailed interpretation of BMI category for this %d-year-old patient\n" +
-                "   - Body composition assessment including body fat percentage\n" +
-                "   - Health implications of current measurements\n" +
-                "   - Comparison to ideal ranges for patient's demographic\n\n" +
-
-                "4. **METABOLIC HEALTH ASSESSMENT**\n" +
-                "   - Activity level analysis (steps, sedentary time, active minutes)\n" +
-                "   - Cardiovascular indicators (resting heart rate, blood pressure)\n" +
-                "   - Metabolic efficiency indicators\n" +
-                "   - Specific insights on how these values compare to clinical guidelines\n" +
-                "   - Metabolic health risk assessment\n\n" +
-
-                "5. **CARDIOVASCULAR FUNCTION**\n" +
-                "   - Heart rate variability analysis (detailed interpretation of RMSSD values)\n" +
-                "   - VO2 max assessment and fitness level classification\n" +
-                "   - Cardiovascular risk stratification\n" +
-                "   - Specific interpretations of what these values indicate for long-term health\n\n" +
-
-                "6. **SLEEP QUALITY ANALYSIS**\n" +
-                "   - Sleep architecture breakdown (deep, light, REM percentages)\n" +
-                "   - Sleep efficiency calculation and interpretation\n" +
-                "   - Sleep quality assessment\n" +
-                "   - Sleep hygiene evaluation\n" +
-                "   - Impact of current sleep patterns on health\n\n" +
-
-                "7. **PATIENT SELF-ASSESSMENT INTEGRATION**\n" +
-                "   - Analysis of patient's subjective health reports\n" +
-                "   - Correlation between objective metrics and subjective experience\n" +
-                "   - Identification of perception-reality gaps\n" +
-                "   - Psychological aspects of health management\n\n" +
-
-                "8. **CLINICAL RECOMMENDATIONS**\n" +
-                "   - Prioritized, actionable recommendations (minimum 5)\n" +
-                "   - Lifestyle modifications with specific targets\n" +
-                "   - Exercise prescription with frequency, intensity, time, and type\n" +
-                "   - Nutritional guidance relevant to metabolic profile\n" +
-                "   - Sleep optimization strategies\n" +
-                "   - Stress management techniques if indicated\n" +
-                "   - Follow-up testing recommendations\n\n" +
-
-                "9. **SUMMARY AND PROGNOSIS**\n" +
-                "   - Concise overview of key findings\n" +
-                "   - Health trajectory assessment\n" +
-                "   - Potential health outcomes with and without intervention\n" +
-                "   - Timeline for expected improvements\n\n" +
-
-                "Format this as a professional medical document with:\n" +
-                "- Clear section demarcation\n" +
-                "- Professional medical terminology with patient-friendly explanations\n" +
-                "- Strategic use of bullet points for clarity\n" +
-                "- Bold text for critical values and key recommendations\n" +
-                "- Clinical interpretation alongside each major metric\n" +
-                "- Reference ranges where appropriate\n" +
-                "- Page numbers in format 'Page X of Y'\n\n" +
-
-                "This report will be converted to PDF format, so maintain proper formatting with clear paragraph breaks and consistent spacing.",
-
-                // Patient information
-                LocalDateTime.now().toString(),
-                userProfile.getName(),
-                userProfile.getAge(),
                 userProfile.getHeight(),
                 userProfile.getWeight(),
                 BMI,
                 userProfile.getBodyFatPercentage(),
                 userProfile.getBloodPressureSystolic(),
                 userProfile.getBloodPressureDiastolic(),
-                userProfile.getRestingHeartRate(),
                 userProfile.getBloodGlucose(),
                 userProfile.getCholesterolTotal(),
                 userProfile.getCholesterolHDL(),
                 userProfile.getCholesterolLDL(),
                 userProfile.getHealthScore(),
 
-                // Activity data
-                userProfile.getAverageSteps(),
-                userProfile.getAverageSedentaryMinutes(),
-                userProfile.getRestingHeartRate(),
-                userProfile.getAverageBreathingRate(),
-                userProfile.getAverageActiveZoneMinutes(),
-
-                // Sleep data
-                userProfile.getMinutesAfterWakeup(),
-                userProfile.getMinutesAwake(),
-                userProfile.getMinutesToFallAsleep(),
-                userProfile.getRestlessCount(),
-                userProfile.getRestlessDuration(),
-                userProfile.getTimeInBed(),
-                userProfile.getTimeInBed() / 60.0f,
-                userProfile.getDeepSleep(),
-                userProfile.getDeepSleep() / 60.0f,
-                userProfile.getLightSleep(),
-                userProfile.getLightSleep() / 60.0f,
-                userProfile.getRemSleep(),
-                userProfile.getRemSleep() / 60.0f,
-                userProfile.getWakeSleep(),
-                // Calculate sleep efficiency (time asleep / time in bed * 100)
-                userProfile.getTimeInBed() > 0 ? 
-                    (float)(userProfile.getTimeInBed() - userProfile.getWakeSleep()) / userProfile.getTimeInBed() * 100 : 0,
-
-                // Cardiovascular metrics
                 userProfile.getAverageDailyRmssd(),
                 userProfile.getAverageDeepRmssd(),
                 userProfile.getVo2Max(),
-
-                // Patient feedback
-                firstQ,
-                BMIQ,
-                diseasesStates != null ? String.join(", ", diseasesStates) : "",
-
-                // Additional parameters for specific sections
-                BMI,
-                userProfile.getAge()
+                lastReport
         );
 
         return prompt;
@@ -629,11 +483,9 @@ public class PtFeedbackActivity extends BaseActivity {
 
     /**
      * Determines if a user can submit a new weekly report based on the date of their last report.
-     * 
      * This method checks two conditions:
      * 1. If there's a report in the database from the last week
      * 2. If the provided date string (from user profile) is more than a week old
-     *
      * If either condition indicates the user hasn't submitted a report in the last week,
      * the method returns true, allowing the user to submit a new report.
      *
@@ -642,7 +494,6 @@ public class PtFeedbackActivity extends BaseActivity {
      *         false if the user has already submitted a report within the last week
      */
     private boolean isDateOlderThanAWeek(String dateStr) {
-        // Check if there's a report in the database from the last week
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "");
         if (!userId.isEmpty()) {
@@ -681,7 +532,6 @@ public class PtFeedbackActivity extends BaseActivity {
 
     /**
      * Calculates and formats the time remaining until a user can submit their next weekly report.
-     * 
      * This method:
      * 1. First checks the database for the latest report and calculates time remaining based on that
      * 2. If no report is found in the database, uses the provided date string from the user profile
@@ -752,7 +602,6 @@ public class PtFeedbackActivity extends BaseActivity {
 
     /**
      * Dynamically creates UI components for disease state assessment.
-     * 
      * This method:
      * 1. Creates a TextInputLayout with appropriate styling
      * 2. Sets the hint text to the disease name plus "state?"

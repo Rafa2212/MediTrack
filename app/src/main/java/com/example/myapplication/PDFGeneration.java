@@ -1,12 +1,11 @@
 package com.example.myapplication;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
-import androidx.core.content.FileProvider;
 
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.font.PdfFontFactory;
+import com.itextpdf.kernel.pdf.PdfReader;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.layout.Document;
@@ -16,19 +15,19 @@ import com.itextpdf.layout.element.Text;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Objects;
 
 /**
  * Utility class for generating PDF reports for patients.
  * This class uses the iText PDF library to create professionally formatted medical reports
  * with consistent styling, proper section organization, and page numbering.
- * 
  * The generated PDFs include sections for:
  * - BMI (Body Mass Index) analysis
  * - Metabolic balance assessment
  * - Health diagnostics information
  * - Patient feedback and self-assessment
- * 
  * If any of these sections are not present in the provided report content,
  * default sections with general information will be added automatically.
  */
@@ -46,24 +45,24 @@ public class PDFGeneration {
     }
 
     /**
-     * Creates a PDF file containing formatted medical report information.
-     * This method processes the provided weekly report response, formats it into a structured PDF,
-     * and saves it to the application's files directory in a patient-specific folder.
-     * 
+     * Creates a PDF file by combining a template first page with patient-specific data pages.
+     * This method loads the first page from a template PDF, then adds additional pages with
+     * minimalist content focused on patient-specific data and interpretations.
      * The method performs the following operations:
      * 1. Creates a unique filename based on patient ID and current timestamp
      * 2. Creates necessary directories for storing the PDF file
-     * 3. Processes the weekly report response into properly formatted sections
-     * 4. Adds any missing standard sections (BMI, metabolic, diagnostics, feedback)
-     * 5. Adds page numbers to all pages
-     * 6. Saves the PDF file to storage
+     * 3. Loads the template PDF from resources and uses its first page
+     * 4. Adds additional pages with patient-specific data (BMI, Metabolic Balance, etc.)
+     * 5. Implements comparison with the last report if available
+     * 6. Adds page numbers to all pages
+     * 7. Saves the PDF file to storage
      *
      * @param weeklyReportResponse The content to include in the PDF, formatted with Markdown-style headings
-     * @param patientId The ID of the patient, used for filename generation and directory structure
-     * @param patientName The name of the patient, used for creating a patient-specific directory
+     * @param patientId The ID of the patient, used for filename generation
+     * @param patient The Patient object containing patient data for personalized insights
      * @return The generated PDF file
      */
-    public File createPDF(String weeklyReportResponse, String patientId, String patientName) {
+    public File createPDF(String weeklyReportResponse, String patientId, Patient patient) {
         String filename = "WeeklyReport.pdf";
         if (patientId != null) {
             String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
@@ -76,9 +75,273 @@ public class PDFGeneration {
         }
 
         File patientDir = reportsDir;
-        if (patientName != null && !patientName.isEmpty()) {
-            String sanitizedName = patientName.replaceAll("[^a-zA-Z0-9]", "_");
-            patientDir = new File(reportsDir, sanitizedName);
+        if (patient != null && patient.getName() != null && !patient.getName().isEmpty()) {
+            patientDir = new File(reportsDir, patient.getName().replace(" ", "_"));
+            if (!patientDir.exists()) {
+                patientDir.mkdirs();
+            }
+        }
+
+        File pdfFile = new File(patientDir, filename);
+        if (pdfFile.exists()) {
+            pdfFile.delete();
+        }
+
+        // Create a temporary file to store the template
+        File tempFile = null;
+        try {
+            int resourceId = context.getResources().getIdentifier(
+                    "meditrack_template_report", "raw", context.getPackageName());
+
+            if (resourceId == 0) {
+                return createFallbackPDF(weeklyReportResponse, patientId, patient);
+            }
+
+            tempFile = File.createTempFile("template", ".pdf", context.getCacheDir());
+            try (InputStream inputStream = context.getResources().openRawResource(resourceId);
+                 FileOutputStream fos = new FileOutputStream(tempFile)) {
+
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = inputStream.read(buffer)) > 0) {
+                    fos.write(buffer, 0, length);
+                }
+            }
+
+            // Copy the first page from the template
+            PdfReader templateReader = new PdfReader(tempFile);
+            PdfWriter writer = new PdfWriter(Files.newOutputStream(pdfFile.toPath()));
+            PdfDocument pdfDoc = new PdfDocument(writer);
+
+            Document document = new Document(pdfDoc);
+            document.setMargins(36, 36, 36, 36);
+
+            PdfDocument templatePdfDoc = new PdfDocument(templateReader);
+            if (templatePdfDoc.getNumberOfPages() > 0) {
+                templatePdfDoc.copyPagesTo(1, 1, pdfDoc);
+            }
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+            MedicalReport previousReport = null;
+            if (patientId != null) {
+                previousReport = dbHelper.getLatestMedicalReportForPatient(patientId);
+            }
+
+            addPatientDataPages(document, weeklyReportResponse, patient, previousReport);
+            document.close();
+            templatePdfDoc.close();
+            templateReader.close();
+
+            return pdfFile;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return createFallbackPDF(weeklyReportResponse, patientId, patient);
+        } finally {
+            // Delete the temporary file in the finally block to ensure it's always deleted after used
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
+        }
+    }
+
+    /**
+     * Adds patient-specific data pages to the PDF document.
+     * This method creates minimalist pages focused on patient-specific data and interpretations.
+     * 
+     * @param document The PDF document to add pages to
+     * @param weeklyReportResponse The content to include in the PDF
+     * @param patient The Patient object containing patient data
+     * @param previousReport The previous medical report for comparison, or null if not available
+     * @throws IOException If there is an error adding content to the document
+     */
+    private void addPatientDataPages(Document document, String weeklyReportResponse, Patient patient, MedicalReport previousReport) throws IOException {
+        document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+        String formattedDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+        Text titleText = new Text("Weekly Report " + formattedDate)
+                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                .setFontSize(12)
+                .setFontColor(new DeviceRgb(0, 51, 102)); // Dark blue
+
+        Paragraph titlePara = new Paragraph().add(titleText)
+                .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
+                .setMarginTop(15.0f)
+                .setMarginBottom(8.0f);
+
+        document.add(titlePara);
+
+        String[] sections = weeklyReportResponse.split("(?=# |## |### )");
+
+        for (String section : sections) {
+            if (section == null || section.trim().isEmpty()) continue;
+
+            if (section.contains("Clinical Recommendations") ||
+                section.contains("CLINICAL RECOMMENDATIONS") ||
+                section.contains("Recommendations") && section.startsWith("##")) {
+                continue;
+            }
+
+            String[] lines = section.split("\n");
+            for (String line : lines) {
+                if (line == null) continue;
+
+                if (line.startsWith("# ")) {
+                    continue;
+                } else if (line.startsWith("## ")) {
+                    Text text = new Text(line.replace("## ", ""))
+                            .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                            .setFontSize(10)
+                            .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
+
+                    float yPosition = document.getRenderer().getCurrentArea().getBBox().getTop();
+                    if (yPosition < 100) { // If less than 100 points from bottom, add page break
+                        document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+                    }
+
+                    Paragraph para = new Paragraph().add(text)
+                            .setMarginTop(10.0f)
+                            .setMarginBottom(5.0f);
+
+                    document.add(para);
+                } else if (line.startsWith("### ")) {
+                    Text text = new Text(line.replace("### ", ""))
+                            .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                            .setFontSize(9)
+                            .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
+
+                    float yPosition = document.getRenderer().getCurrentArea().getBBox().getTop();
+                    if (yPosition < 80) { // If less than 80 points from bottom, add page break
+                        document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+                    }
+
+                    Paragraph para = new Paragraph().add(text)
+                            .setMarginTop(8.0f)
+                            .setMarginBottom(4.0f);
+
+                    document.add(para);
+                } else if (line.contains("**")) {
+                    Paragraph paragraph = new Paragraph().setFontSize(9);
+                    String[] parts = line.split("\\*\\*");
+                    for (int j = 0; j < parts.length; j++) {
+                        if (parts[j] == null) continue;
+
+                        if (j % 2 == 0) {
+                            paragraph.add(new Text(parts[j]));
+                        } else {
+                            if (patient != null && parts[j].equals(patient.getName())) {
+                                paragraph.add(new Text(parts[j])
+                                        .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                        .setFontColor(new DeviceRgb(0, 102, 153))); // Medium blue for patient name
+                            } else {
+                                paragraph.add(new Text(parts[j])
+                                        .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                        .setFontColor(new DeviceRgb(51, 51, 51))); // Dark gray for emphasis
+                            }
+                        }
+                    }
+
+                    document.add(paragraph);
+                } else if (line.startsWith("- ") || line.startsWith("* ")) {
+                    String bulletText = line.substring(2);
+
+                    if (bulletText.contains("data from Fitbit") || bulletText.contains("according to Fitbit")) {
+                    } else if (bulletText.contains("steps") || bulletText.contains("activity") ||
+                              bulletText.contains("heart rate") || bulletText.contains("sleep")) {
+                        bulletText += " (data from Fitbit)";
+                    }
+
+                    Paragraph para = new Paragraph()
+                            .setFontSize(9)
+                            .setMarginLeft(15f)
+                            .setFirstLineIndent(-8f);
+
+                    Text bullet = new Text("• ")
+                            .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
+                    para.add(bullet).add(bulletText);
+
+                    document.add(para);
+                } else if (!line.trim().isEmpty()) {
+                    String processedLine = line;
+
+                    if (processedLine.endsWith("#")) {
+                        processedLine = processedLine.replaceAll("\\s*#\\s*$", "");
+                    }
+
+                    if (!processedLine.contains("data from Fitbit") && !processedLine.contains("according to Fitbit")) {
+                        if (processedLine.contains("steps") || processedLine.contains("activity") ||
+                            processedLine.contains("heart rate") || processedLine.contains("sleep")) {
+                            processedLine += " (data from Fitbit)";
+                        }
+                    }
+
+                    if (processedLine.contains("{") && processedLine.contains("}")) {
+                        StringBuilder currentText = new StringBuilder();
+                        boolean inCenteredSection = false;
+
+                        for (int i = 0; i < processedLine.length(); i++) {
+                            char c = processedLine.charAt(i);
+
+                            if (c == '{' && !inCenteredSection) {
+                                if (currentText.length() > 0) {
+                                    Paragraph normalPara = new Paragraph(currentText.toString())
+                                            .setFontSize(9)
+                                            .setMarginBottom(4.0f);
+                                    document.add(normalPara);
+                                    currentText = new StringBuilder();
+                                }
+                                inCenteredSection = true;
+                            } else if (c == '}' && inCenteredSection) {
+                                Paragraph centeredPara = new Paragraph(currentText.toString())
+                                        .setFontSize(9)
+                                        .setMarginBottom(4.0f)
+                                        .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER);
+                                document.add(centeredPara);
+                                currentText = new StringBuilder();
+                                inCenteredSection = false;
+                            } else {
+                                currentText.append(c);
+                            }
+                        }
+
+                        if (currentText.length() > 0) {
+                            Paragraph finalPara = new Paragraph(currentText.toString())
+                                    .setFontSize(9)
+                                    .setMarginBottom(4.0f);
+                            document.add(finalPara);
+                        }
+                    } else {
+                        Paragraph para = new Paragraph(processedLine)
+                                .setFontSize(9)
+                                .setMarginBottom(4.0f);
+                        document.add(para);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Creates a fallback PDF using the original method if there's an error with the template approach.
+     *
+     * @param weeklyReportResponse The content to include in the PDF
+     * @param patientId The ID of the patient
+     * @param patient The Patient object containing patient data
+     * @return The generated PDF file
+     */
+    private File createFallbackPDF(String weeklyReportResponse, String patientId, Patient patient) {
+        String filename = "WeeklyReport.pdf";
+        if (patientId != null) {
+            String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            filename = "report_" + patientId + "_" + timestamp + ".pdf";
+        }
+
+        File reportsDir = new File(context.getFilesDir(), "reports");
+        if (!reportsDir.exists()) {
+            reportsDir.mkdirs();
+        }
+
+        // Create user-specific directory
+        File patientDir = reportsDir;
+        if (patient != null && patient.getName() != null && !patient.getName().isEmpty()) {
+            patientDir = new File(reportsDir, patient.getName().replace(" ", "_"));
             if (!patientDir.exists()) {
                 patientDir.mkdirs();
             }
@@ -95,161 +358,148 @@ public class PDFGeneration {
 
             document.setMargins(36, 36, 36, 36);
 
+            Text coverTitleText = new Text("MediTrack Weekly Report")
+                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                    .setFontSize(16)
+                    .setFontColor(new DeviceRgb(0, 51, 102)); // Dark blue
+
+            Paragraph coverTitlePara = new Paragraph().add(coverTitleText)
+                    .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
+                    .setMarginTop(250.0f); // Position in the middle of the page
+
+            document.add(coverTitlePara);
+
+            if (patient != null && patient.getName() != null && !patient.getName().isEmpty()) {
+                Text patientNameText = new Text(patient.getName())
+                        .setFont(PdfFontFactory.createFont("Helvetica"))
+                        .setFontSize(12)
+                        .setFontColor(new DeviceRgb(0, 51, 102)); // Dark blue
+
+                Paragraph patientNamePara = new Paragraph().add(patientNameText)
+                        .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
+                        .setMarginTop(20.0f);
+
+                document.add(patientNamePara);
+            }
+
+            String formattedDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+            Text dateText = new Text(formattedDate)
+                    .setFont(PdfFontFactory.createFont("Helvetica"))
+                    .setFontSize(12)
+                    .setFontColor(new DeviceRgb(0, 51, 102)); // Dark blue
+
+            Paragraph datePara = new Paragraph().add(dateText)
+                    .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
+                    .setMarginTop(20.0f);
+
+            document.add(datePara);
+
+            document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+
             if (weeklyReportResponse == null) {
                 weeklyReportResponse = "Error: No content available.";
             }
             String[] sections = weeklyReportResponse.split("(?=# |## |### )");
 
-            boolean hasBMISection = false;
-            boolean hasMetabolicSection = false;
-            boolean hasDiagnosticsSection = false;
-            boolean hasFeedbackSection = false;
-
             for (String section : sections) {
-                if (section == null || section.trim().isEmpty()) continue;
-
-                if (section.contains("BMI") || section.contains("Body Mass Index")) {
-                    hasBMISection = true;
-                }
-                if (section.contains("Metabolic") || section.contains("Metabolism")) {
-                    hasMetabolicSection = true;
-                }
-                if (section.contains("Diagnosis") || section.contains("Diagnostic")) {
-                    hasDiagnosticsSection = true;
-                }
-                if (section.contains("Feedback") || section.contains("Patient Report")) {
-                    hasFeedbackSection = true;
-                }
-
                 String[] lines = section.split("\n");
                 for (String line : lines) {
                     if (line == null) continue;
 
                     if (line.startsWith("# ")) {
-                        // Main title - large, centered, with accent color
-                        Text text = new Text(line.replace("# ", ""))
+                        String titleText = line.replace("# ", "");
+                        if (titleText.contains("WEEKLY") && titleText.contains("REPORT")) {
+                            String titleFormattedDate = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy"));
+                            titleText = "Weekly Report " + titleFormattedDate;
+                        }
+
+                        Text text = new Text(titleText)
                                 .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                                .setFontSize(18)
+                                .setFontSize(12)
                                 .setFontColor(new DeviceRgb(0, 51, 102)); // Dark blue
                         Paragraph para = new Paragraph().add(text)
                                 .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
-                                .setMarginTop(20.0f)
-                                .setMarginBottom(10.0f);
-                        document.add(para);
-                    } else if (line.startsWith("## ")) {
-                        // Section title - medium, left-aligned, with accent color
-                        Text text = new Text(line.replace("## ", ""))
-                                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                                .setFontSize(16)
-                                .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
-                        Paragraph para = new Paragraph().add(text)
                                 .setMarginTop(15.0f)
                                 .setMarginBottom(8.0f);
                         document.add(para);
+
+                    } else if (line.startsWith("## ")) {
+                        String titleText = line.replace("## ", "");
+                        Text text;
+                        Paragraph para;
+
+                        if (titleText.equals("I. Introduction") ||
+                            titleText.equals("II. Summary of the Feedback") ||
+                            titleText.equals("III. Observations and Trends") ||
+                            titleText.equals("IV. Conclusion")) {
+
+                            text = new Text(titleText)
+                                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                    .setFontSize(14)
+                                    .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
+
+                            para = new Paragraph().add(text)
+                                    .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER)
+                                    .setMarginTop(15.0f)
+                                    .setMarginBottom(8.0f);
+                        } else {
+                            text = new Text(titleText)
+                                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                    .setFontSize(10)
+                                    .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
+
+                            para = new Paragraph().add(text)
+                                    .setMarginTop(10.0f)
+                                    .setMarginBottom(5.0f);
+                        }
+
+                        float yPosition = document.getRenderer().getCurrentArea().getBBox().getTop();
+                        if (yPosition < 100) { // If less than 100 points from bottom, add page break
+                            document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+                        }
+
+                        document.add(para);
                     } else if (line.startsWith("### ")) {
-                        // Subsection title - smaller, left-aligned, with accent color
                         Text text = new Text(line.replace("### ", ""))
                                 .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                                .setFontSize(14)
+                                .setFontSize(9)
                                 .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
+
+                        float yPosition = document.getRenderer().getCurrentArea().getBBox().getTop();
+                        if (yPosition < 80) { // If less than 80 points from bottom, add page break
+                            document.add(new com.itextpdf.layout.element.AreaBreak(com.itextpdf.kernel.geom.PageSize.A4));
+                        }
+
                         Paragraph para = new Paragraph().add(text)
-                                .setMarginTop(10.0f)
-                                .setMarginBottom(6.0f);
+                                .setMarginTop(8.0f)
+                                .setMarginBottom(4.0f);
                         document.add(para);
                     } else if (line.contains("**")) {
-                        // Text with bold emphasis
-                        Paragraph paragraph = new Paragraph().setFontSize(12);
+                        Paragraph paragraph = new Paragraph().setFontSize(9);
                         String[] parts = line.split("\\*\\*");
+
                         for (int j = 0; j < parts.length; j++) {
                             if (parts[j] == null) continue;
 
                             if (j % 2 == 0) {
                                 paragraph.add(new Text(parts[j]));
                             } else {
-                                paragraph.add(new Text(parts[j])
-                                        .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                                        .setFontColor(new DeviceRgb(51, 51, 51))); // Dark gray for emphasis
+                                if (patient != null && parts[j].equals(patient.getName())) {
+                                    paragraph.add(new Text(parts[j])
+                                            .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                            .setFontColor(new DeviceRgb(0, 102, 153))); // Medium blue for patient name
+                                } else {
+                                    paragraph.add(new Text(parts[j])
+                                            .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
+                                            .setFontColor(new DeviceRgb(51, 51, 51))); // Dark gray for emphasis
+                                }
                             }
                         }
                         document.add(paragraph);
-                    } else if (line.startsWith("- ") || line.startsWith("* ")) {
-                        // Bullet points
-                        String bulletText = line.substring(2);
-                        Paragraph para = new Paragraph()
-                                .setFontSize(12)
-                                .setMarginLeft(20f)
-                                .setFirstLineIndent(-10f);
-
-                        Text bullet = new Text("• ")
-                                .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
-                        para.add(bullet).add(bulletText);
-
-                        document.add(para);
-                    } else if (!line.trim().isEmpty()) {
-                        // Regular paragraph text
-                        Paragraph para = new Paragraph(line)
-                                .setFontSize(12)
-                                .setMarginBottom(6.0f);
-                        document.add(para);
                     }
                 }
             }
 
-            if (!hasBMISection) {
-                addBMISection(document);
-            }
-
-            if (!hasMetabolicSection) {
-                addMetabolicSection(document);
-            }
-
-            if (!hasDiagnosticsSection) {
-                addDiagnosticsSection(document);
-            }
-
-            if (!hasFeedbackSection) {
-                addFeedbackSection(document);
-            }
-
-            try {
-                int numberOfPages = pdf.getNumberOfPages();
-                for (int i = 1; i <= numberOfPages; i++) {
-                    com.itextpdf.kernel.pdf.PdfPage page = pdf.getPage(i);
-                    if (page == null) {
-                        continue;
-                    }
-
-                    try {
-                        com.itextpdf.kernel.pdf.canvas.PdfCanvas canvas = new com.itextpdf.kernel.pdf.canvas.PdfCanvas(page);
-
-                        com.itextpdf.kernel.geom.Rectangle pageSize = page.getPageSize();
-                        if (pageSize == null) {
-                            continue;
-                        }
-
-                        // Create a canvas for writing content
-                        com.itextpdf.layout.Canvas layoutCanvas = new com.itextpdf.layout.Canvas(canvas, pdf, pageSize);
-
-                        // Create footer text
-                        Text footerText = new Text(String.format("Page %d of %d", i, numberOfPages))
-                                .setFontSize(10)
-                                .setFontColor(new DeviceRgb(128, 128, 128));
-
-                        // Create footer paragraph
-                        Paragraph footer = new Paragraph(footerText)
-                                .setTextAlignment(com.itextpdf.layout.property.TextAlignment.CENTER);
-
-                        // Add footer to the page using the canvas
-                        layoutCanvas.showTextAligned(footer, pageSize.getWidth() / 2, 20, i, 
-                                com.itextpdf.layout.property.TextAlignment.CENTER, 
-                                com.itextpdf.layout.property.VerticalAlignment.BOTTOM, 0);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
 
             document.close();
         } catch (IOException e) {
@@ -258,356 +508,4 @@ public class PDFGeneration {
         return pdfFile;
     }
 
-    /**
-     * Adds a BMI (Body Mass Index) analysis section to the document if it's not already present.
-     * This method creates a formatted section with the following components:
-     * - A section title with medium blue color and bold font
-     * - An explanatory paragraph describing what BMI is and its purpose
-     * - A list of BMI categories with bullet points (Underweight, Normal weight, etc.)
-     * - A note about BMI limitations as a screening tool
-     * 
-     * This section provides educational information about BMI interpretation
-     * and is added automatically if the weekly report doesn't include BMI information.
-     *
-     * @param document The PDF document to add the section to
-     * @throws IOException If there is an error creating or adding content to the document
-     */
-    private void addBMISection(Document document) throws IOException {
-        // Add section title
-        Text titleText = new Text("Body Mass Index (BMI) Analysis")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(16)
-                .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
-
-        Paragraph titlePara = new Paragraph().add(titleText)
-                .setMarginTop(15.0f)
-                .setMarginBottom(8.0f);
-
-        document.add(titlePara);
-
-        // Add explanatory text
-        Paragraph explanationPara = new Paragraph(
-                "BMI is a measure of body fat based on height and weight. " +
-                "It is used to screen for weight categories that may lead to health problems.")
-                .setFontSize(12)
-                .setMarginBottom(6.0f);
-
-        document.add(explanationPara);
-
-        // Add BMI categories
-        Paragraph categoriesPara = new Paragraph("BMI Categories:")
-                .setFontSize(12)
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setMarginTop(10.0f)
-                .setMarginBottom(6.0f);
-
-        document.add(categoriesPara);
-
-        // Add bullet points for categories
-        String[] categories = {
-                "Underweight: BMI less than 18.5",
-                "Normal weight: BMI 18.5-24.9",
-                "Overweight: BMI 25-29.9",
-                "Obesity (Class 1): BMI 30-34.9",
-                "Obesity (Class 2): BMI 35-39.9",
-                "Extreme Obesity (Class 3): BMI 40 or higher"
-        };
-
-        for (String category : categories) {
-            Paragraph para = new Paragraph()
-                    .setFontSize(12)
-                    .setMarginLeft(20f)
-                    .setFirstLineIndent(-10f);
-
-            Text bullet = new Text("• ")
-                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
-            para.add(bullet).add(category);
-
-            document.add(para);
-        }
-
-        // Add note about limitations
-        Paragraph notePara = new Paragraph(
-                "Note: BMI is a screening tool and does not directly measure body fat or account " +
-                "for factors such as muscle mass, bone density, and overall body composition.")
-                .setFontSize(12)
-                .setMarginTop(10.0f)
-                .setFontColor(new DeviceRgb(102, 102, 102)); // Gray text
-
-        document.add(notePara);
-    }
-
-    /**
-     * Adds a metabolic balance analysis section to the document if it's not already present.
-     * This method creates a formatted section with the following components:
-     * - A section title with medium blue color and bold font
-     * - An explanatory paragraph describing metabolic balance and its influences
-     * - A subsection for key metabolic indicators with bullet points
-     *   (Resting Heart Rate, Active Zone Minutes, Steps per Day, etc.)
-     * - A subsection with general recommendations for optimal metabolic health
-     * 
-     * This section provides educational information about metabolic health
-     * and practical recommendations for maintaining metabolic balance.
-     * It is added automatically if the weekly report doesn't include metabolic information.
-     *
-     * @param document The PDF document to add the section to
-     * @throws IOException If there is an error creating or adding content to the document
-     */
-    private void addMetabolicSection(Document document) throws IOException {
-        // Add section title
-        Text titleText = new Text("Metabolic Balance Analysis")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(16)
-                .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
-
-        Paragraph titlePara = new Paragraph().add(titleText)
-                .setMarginTop(15.0f)
-                .setMarginBottom(8.0f);
-
-        document.add(titlePara);
-
-        // Add explanatory text
-        Paragraph explanationPara = new Paragraph(
-                "Metabolic balance refers to the equilibrium between energy intake and expenditure. " +
-                "It is influenced by physical activity, resting metabolic rate, and dietary habits.")
-                .setFontSize(12)
-                .setMarginBottom(6.0f);
-
-        document.add(explanationPara);
-
-        // Add subsection for key metrics
-        Text metricsText = new Text("Key Metabolic Indicators")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(14)
-                .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
-
-        Paragraph metricsPara = new Paragraph().add(metricsText)
-                .setMarginTop(10.0f)
-                .setMarginBottom(6.0f);
-
-        document.add(metricsPara);
-
-        // Add bullet points for metrics
-        String[] metrics = {
-                "Resting Heart Rate: Indicator of cardiovascular fitness",
-                "Active Zone Minutes: Measure of moderate to intense physical activity",
-                "Steps per Day: Indicator of overall activity level",
-                "Sedentary Minutes: Time spent with minimal physical movement",
-                "Sleep Quality: Important for metabolic regulation and recovery"
-        };
-
-        for (String metric : metrics) {
-            Paragraph para = new Paragraph()
-                    .setFontSize(12)
-                    .setMarginLeft(20f)
-                    .setFirstLineIndent(-10f);
-
-            Text bullet = new Text("• ")
-                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"));
-            para.add(bullet).add(metric);
-
-            document.add(para);
-        }
-
-        // Add recommendations
-        Text recommendationsText = new Text("General Recommendations")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(14)
-                .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
-
-        Paragraph recommendationsPara = new Paragraph().add(recommendationsText)
-                .setMarginTop(10.0f)
-                .setMarginBottom(6.0f);
-
-        document.add(recommendationsPara);
-
-        Paragraph recommendationsContentPara = new Paragraph(
-                "For optimal metabolic health, aim for at least 150 minutes of moderate-intensity " +
-                "aerobic activity per week, maintain a balanced diet rich in whole foods, ensure " +
-                "adequate hydration, and prioritize quality sleep of 7-9 hours per night.")
-                .setFontSize(12)
-                .setMarginBottom(6.0f);
-
-        document.add(recommendationsContentPara);
-    }
-
-    /**
-     * Adds a health diagnostics section to the document if it's not already present.
-     * This method creates a formatted section with the following components:
-     * - A section title with medium blue color and bold font
-     * - An explanatory paragraph describing the purpose of health diagnostics
-     * - Three subsections covering different diagnostic areas:
-     *   1. Cardiovascular Health (HRV and VO2 Max information)
-     *   2. Respiratory Function (breathing rate information)
-     *   3. Sleep Quality (sleep stages and factors affecting sleep quality)
-     * - A note about consulting healthcare providers for proper diagnosis
-     * 
-     * This section provides educational information about key health indicators
-     * based on Fitbit data and their significance for overall health assessment.
-     * It is added automatically if the weekly report doesn't include diagnostics information.
-     *
-     * @param document The PDF document to add the section to
-     * @throws IOException If there is an error creating or adding content to the document
-     */
-    private void addDiagnosticsSection(Document document) throws IOException {
-        // Add section title
-        Text titleText = new Text("Health Diagnostics")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(16)
-                .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
-
-        Paragraph titlePara = new Paragraph().add(titleText)
-                .setMarginTop(15.0f)
-                .setMarginBottom(8.0f);
-
-        document.add(titlePara);
-
-        // Add explanatory text
-        Paragraph explanationPara = new Paragraph(
-                "This section provides an analysis of key health indicators based on your Fitbit data. " +
-                "These metrics can help identify potential health concerns and track progress over time.")
-                .setFontSize(12)
-                .setMarginBottom(6.0f);
-
-        document.add(explanationPara);
-
-        // Add subsections for different diagnostic areas
-        String[][] diagnosticAreas = {
-                {"Cardiovascular Health", 
-                 "Heart rate variability (HRV) is a measure of the variation in time between heartbeats. " +
-                 "Higher HRV generally indicates better cardiovascular health and stress resilience. " +
-                 "VO2 Max (cardio fitness score) represents your body's maximum oxygen utilization during exercise."},
-
-                {"Respiratory Function", 
-                 "Breathing rate at rest typically ranges from 12-20 breaths per minute. " +
-                 "Consistently elevated rates may indicate respiratory or cardiovascular issues."},
-
-                {"Sleep Quality", 
-                 "Sleep is divided into stages: light, deep, and REM. Deep sleep is essential for physical recovery, " +
-                 "while REM sleep supports cognitive function and emotional regulation. " +
-                 "Factors like sleep duration, efficiency, and consistency all contribute to overall sleep quality."}
-        };
-
-        for (String[] area : diagnosticAreas) {
-            // Add subsection title
-            Text areaText = new Text(area[0])
-                    .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                    .setFontSize(14)
-                    .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
-
-            Paragraph areaPara = new Paragraph().add(areaText)
-                    .setMarginTop(10.0f)
-                    .setMarginBottom(6.0f);
-
-            document.add(areaPara);
-
-            // Add subsection content
-            Paragraph contentPara = new Paragraph(area[1])
-                    .setFontSize(12)
-                    .setMarginBottom(10.0f);
-
-            document.add(contentPara);
-        }
-
-        // Add note about consulting healthcare providers
-        Paragraph notePara = new Paragraph(
-                "Note: This information is not intended to replace professional medical advice. " +
-                "Always consult with your healthcare provider for proper diagnosis and treatment.")
-                .setFontSize(12)
-                .setMarginTop(10.0f)
-                .setFontColor(new DeviceRgb(102, 102, 102)); // Gray text
-
-        document.add(notePara);
-    }
-
-    /**
-     * Adds a patient feedback and self-assessment section to the document if it's not already present.
-     * This method creates a formatted section with the following components:
-     * - A section title with medium blue color and bold font
-     * - An explanatory paragraph describing the importance of patient feedback
-     * - A subsection for general health assessment with placeholder content
-     * - A subsection for condition-specific feedback with placeholder content
-     * - A note about the importance of patient self-assessment and regular communication
-     * 
-     * This section serves as a placeholder for patient-reported information and emphasizes
-     * the value of patient feedback in comprehensive healthcare assessment.
-     * It is added automatically if the weekly report doesn't include patient feedback information.
-     * The placeholder content directs readers to refer to weekly questionnaire responses for
-     * more specific patient feedback.
-     *
-     * @param document The PDF document to add the section to
-     * @throws IOException If there is an error creating or adding content to the document
-     */
-    private void addFeedbackSection(Document document) throws IOException {
-        // Add section title
-        Text titleText = new Text("Patient Feedback & Self-Assessment")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(16)
-                .setFontColor(new DeviceRgb(0, 102, 153)); // Medium blue
-
-        Paragraph titlePara = new Paragraph().add(titleText)
-                .setMarginTop(15.0f)
-                .setMarginBottom(8.0f);
-
-        document.add(titlePara);
-
-        // Add explanatory text
-        Paragraph explanationPara = new Paragraph(
-                "This section summarizes the patient's self-reported health status and concerns. " +
-                "Patient feedback is a valuable component of comprehensive healthcare assessment.")
-                .setFontSize(12)
-                .setMarginBottom(10.0f);
-
-        document.add(explanationPara);
-
-        // Add placeholder for patient's general health assessment
-        Text generalHealthText = new Text("General Health Assessment")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(14)
-                .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
-
-        Paragraph generalHealthPara = new Paragraph().add(generalHealthText)
-                .setMarginTop(10.0f)
-                .setMarginBottom(6.0f);
-
-        document.add(generalHealthPara);
-
-        Paragraph generalHealthContentPara = new Paragraph(
-                "The patient has not provided specific feedback on their general health status. " +
-                "Please refer to the weekly questionnaire responses for more information.")
-                .setFontSize(12)
-                .setMarginBottom(10.0f);
-
-        document.add(generalHealthContentPara);
-
-        // Add placeholder for condition-specific feedback
-        Text conditionsText = new Text("Condition-Specific Feedback")
-                .setFont(PdfFontFactory.createFont("Helvetica-Bold"))
-                .setFontSize(14)
-                .setFontColor(new DeviceRgb(51, 153, 204)); // Light blue
-
-        Paragraph conditionsPara = new Paragraph().add(conditionsText)
-                .setMarginTop(10.0f)
-                .setMarginBottom(6.0f);
-
-        document.add(conditionsPara);
-
-        Paragraph conditionsContentPara = new Paragraph(
-                "The patient has not provided specific feedback on their diagnosed conditions. " +
-                "Please refer to the weekly questionnaire responses for more information.")
-                .setFontSize(12)
-                .setMarginBottom(10.0f);
-
-        document.add(conditionsContentPara);
-
-        // Add note about the importance of patient feedback
-        Paragraph notePara = new Paragraph(
-                "Note: Patient self-assessment is an important complement to objective health metrics. " +
-                "Regular communication between patient and healthcare provider is encouraged for optimal care.")
-                .setFontSize(12)
-                .setMarginTop(10.0f)
-                .setFontColor(new DeviceRgb(102, 102, 102)); // Gray text
-
-        document.add(notePara);
-    }
 }

@@ -71,7 +71,7 @@ public class PatientAdapter extends RecyclerView.Adapter<PatientAdapter.PatientV
     @Override
     public void onBindViewHolder(@NonNull PatientViewHolder holder, int position) {
         User patient = patients.get(position);
-        UserProfile profile = patient.getUserProfile();
+        Patient profile = patient.getPatient();
 
         if (profile != null) {
             holder.patientName.setText(profile.getName());

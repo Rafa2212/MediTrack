@@ -19,7 +19,6 @@ import com.theokanning.openai.completion.chat.ChatCompletionResult;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.service.OpenAiService;
 
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -37,23 +36,6 @@ public class DrProfileActivity extends BaseActivity {
     private String originalUsername = "";
     private String originalPassword = "";
 
-    // Constants for SharedPreferences keys
-    private static final String PREF_TEMP_DATA = "TEMP_PROFILE_DATA";
-    private static final String KEY_CNP = "temp_cnp";
-    private static final String KEY_NAME = "temp_name";
-    private static final String KEY_AGE = "temp_age";
-    private static final String KEY_HEIGHT = "temp_height";
-    private static final String KEY_WEIGHT = "temp_weight";
-    private static final String KEY_BODY_FAT = "temp_body_fat";
-    private static final String KEY_BP_SYSTOLIC = "temp_bp_systolic";
-    private static final String KEY_BP_DIASTOLIC = "temp_bp_diastolic";
-    private static final String KEY_HR = "temp_hr";
-    private static final String KEY_BLOOD_GLUCOSE = "temp_blood_glucose";
-    private static final String KEY_CHOLESTEROL_TOTAL = "temp_cholesterol_total";
-    private static final String KEY_CHOLESTEROL_HDL = "temp_cholesterol_hdl";
-    private static final String KEY_CHOLESTEROL_LDL = "temp_cholesterol_ldl";
-    private static final String KEY_BODY_TYPE = "temp_body_type";
-
     private EditText editTextCnp;
     private EditText editTextName;
     private EditText editTextAge;
@@ -67,6 +49,7 @@ public class DrProfileActivity extends BaseActivity {
     private EditText editTextCholesterolTotal;
     private EditText editTextCholesterolHDL;
     private EditText editTextCholesterolLDL;
+    private com.google.android.material.textfield.MaterialAutoCompleteTextView spinnerGender;
 
     /**
      * Generates a username from the patient's full name by removing spaces
@@ -98,7 +81,6 @@ public class DrProfileActivity extends BaseActivity {
      * @param cnp The patient's CNP
      */
     private void updateGeneratedCredentials(String name, String cnp) {
-        // If we're editing a patient's profile, use the original credentials
         if (isEditingPatientProfile && !originalUsername.isEmpty() && !originalPassword.isEmpty()) {
             textViewGeneratedUsername.setText(originalUsername);
             textViewGeneratedPassword.setText(originalPassword);
@@ -116,206 +98,124 @@ public class DrProfileActivity extends BaseActivity {
 
     /**
      * Handles the profile submission logic.
-     * If we're creating a new patient or if the CNP has changed from the last loaded CNP, creates a new user.
-     * Otherwise, updates the existing user's profile.
+     * First checks if a patient with the given CNP exists, then:
+     * - If editing an existing profile, updates it
+     * - If creating a new patient and a patient with the CNP exists, updates that profile
+     * - If creating a new patient and no patient with the CNP exists, creates a new patient
      *
-     * @param currentUserId The current user ID
      * @param cnp The CNP entered by the user
      * @param userProfile The user profile to save
+     * @param dbHelper Database helper to perform operations
      * @return The user ID to use for the rest of the process
      */
-    private String handleProfileSubmission(String currentUserId, String cnp, UserProfile userProfile, DatabaseHelper dbHelper) {
+    private String handleProfileSubmission(String cnp, Patient userProfile, DatabaseHelper dbHelper) {
+        if (isEditingPatientProfile && !TextUtils.isEmpty(viewingPatientId)) {
+            dbHelper.insertOrUpdateProfile(viewingPatientId, userProfile);
+            return viewingPatientId;
+        }
 
-        if (isCreatingNewPatient || (!TextUtils.isEmpty(cnp) && !TextUtils.isEmpty(lastLoadedCnp) && !cnp.equals(lastLoadedCnp))) {
-            if (isCreatingNewPatient && !TextUtils.isEmpty(creatingDoctorId)) {
-                UserProfile existingProfile = dbHelper.getUserProfileByCnp(cnp);
-                if (existingProfile != null) {
-                    String existingPatientId = null;
+        Patient existingProfile = dbHelper.getPatientByCnp(cnp);
+        if (existingProfile != null) {
+            if (!TextUtils.isEmpty(creatingDoctorId)) {
+                String existingPatientId = null;
+                boolean patientAlreadyAssigned = false;
 
-                    List<User> doctorPatients = dbHelper.getPatientsForDoctor(creatingDoctorId);
-                    boolean patientAlreadyAssigned = false;
-
-                    for (User patient : doctorPatients) {
-                        if (patient.getUserProfile() != null && 
-                            cnp.equals(patient.getUserProfile().getCnp())) {
-                            patientAlreadyAssigned = true;
-                            existingPatientId = patient.getUserId();
-                            Snackbar.make(findViewById(android.R.id.content), 
-                                "A patient with this CNP is already assigned to you, his profile will be updated!",
-                                Snackbar.LENGTH_SHORT).show();
-                            break;
-                        }
-                    }
-
-                    if (patientAlreadyAssigned && existingPatientId != null) {
-                        dbHelper.insertOrUpdateProfile(existingPatientId, userProfile);
+                List<User> doctorPatients = dbHelper.getPatientsForDoctor(creatingDoctorId);
+                for (User patient : doctorPatients) {
+                    if (patient.getPatient() != null && cnp.equals(patient.getPatient().getCnp())) {
+                        patientAlreadyAssigned = true;
+                        existingPatientId = patient.getUserId();
                         Snackbar.make(findViewById(android.R.id.content), 
-                            "Updated existing patient profile", 
+                            "A patient with this CNP is already assigned to you, his profile will be updated!",
                             Snackbar.LENGTH_SHORT).show();
-                        return currentUserId;
-                    } else {
-                        Cursor cursor = dbHelper.getReadableDatabase().query(
-                            DatabaseHelper.TABLE_PROFILE,
-                            new String[] { DatabaseHelper.COLUMN_USER_ID },
-                            "cnp=?",
-                            new String[] { cnp },
-                            null, null, null);
-
-                        if (cursor != null && cursor.moveToFirst()) {
-                            @SuppressLint("Range")
-                            String patientId = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_USER_ID));
-                            cursor.close();
-
-                            dbHelper.insertOrUpdateProfile(patientId, userProfile);
-
-                            dbHelper.assignPatientToDoctor(creatingDoctorId, patientId);
-
-                            Snackbar.make(findViewById(android.R.id.content), 
-                                "Existing patient assigned to you and profile updated", 
-                                Snackbar.LENGTH_SHORT).show();
-                            return currentUserId;
-                        }
-
-                        if (cursor != null) {
-                            cursor.close();
-                        }
-                    }
-                }
-            }
-
-            String username = generateUsername(userProfile.getName());
-            String password = generatePassword(userProfile.getName(), cnp);
-
-            long newUserId = dbHelper.addTestUser(username, password, "patient");
-            if (newUserId != -1) {
-                dbHelper.insertOrUpdateProfile(String.valueOf(newUserId), userProfile);
-
-                if (isCreatingNewPatient) {
-                    if (!TextUtils.isEmpty(creatingDoctorId)) {
-                        dbHelper.assignPatientToDoctor(creatingDoctorId, String.valueOf(newUserId));
+                        break;
                     }
                 }
 
+                if (patientAlreadyAssigned && existingPatientId != null) {
+                    dbHelper.insertOrUpdateProfile(existingPatientId, userProfile);
+                    Snackbar.make(findViewById(android.R.id.content), 
+                        "A patient with this CNP is already assigned to you, his profile will be updated!",
+                        Snackbar.LENGTH_SHORT).show();
+                    return existingPatientId;
+                } else {
+                    Cursor cursor = dbHelper.getReadableDatabase().query(
+                        DatabaseHelper.TABLE_PATIENTS,
+                        new String[] { DatabaseHelper.COLUMN_USER_ID },
+                        "cnp=?",
+                        new String[] { cnp },
+                        null, null, null);
 
-                Snackbar.make(findViewById(android.R.id.content), 
-                    "Created new patient profile", 
-                    Snackbar.LENGTH_SHORT).show();
+                    if (cursor != null && cursor.moveToFirst()) {
+                        @SuppressLint("Range")
+                        String patientIdFromCnp = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_USER_ID));
+                        cursor.close();
 
-                return currentUserId;
+                        dbHelper.insertOrUpdateProfile(patientIdFromCnp, userProfile);
+                        dbHelper.assignPatientToDoctor(creatingDoctorId, patientIdFromCnp);
+
+                        Snackbar.make(findViewById(android.R.id.content), 
+                            "Existing patient assigned to you and profile updated", 
+                            Snackbar.LENGTH_SHORT).show();
+                        return patientIdFromCnp;
+                    }
+
+                    if (cursor != null) {
+                        cursor.close();
+                    }
+                }
             } else {
-                Snackbar.make(findViewById(android.R.id.content), 
-                    "Failed to create new patient profile", 
-                    Snackbar.LENGTH_SHORT).show();
-                return currentUserId;
+                Cursor cursor = dbHelper.getReadableDatabase().query(
+                    DatabaseHelper.TABLE_PATIENTS,
+                    new String[] { DatabaseHelper.COLUMN_USER_ID },
+                    "cnp=?",
+                    new String[] { cnp },
+                    null, null, null);
+
+                if (cursor != null && cursor.moveToFirst()) {
+                    @SuppressLint("Range")
+                    String patientIdFromCnp = cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_USER_ID));
+                    cursor.close();
+
+                    dbHelper.insertOrUpdateProfile(patientIdFromCnp, userProfile);
+                    Snackbar.make(findViewById(android.R.id.content), 
+                        "Updated existing patient profile", 
+                        Snackbar.LENGTH_SHORT).show();
+                    return patientIdFromCnp;
+                }
+
+                if (cursor != null) {
+                    cursor.close();
+                }
             }
+        }
+
+        String username = generateUsername(userProfile.getName());
+        String password = generatePassword(userProfile.getName(), cnp);
+
+        long newUserId = dbHelper.addTestUser(username, password, "patient");
+        if (newUserId != -1) {
+            String newUserIdStr = String.valueOf(newUserId);
+            dbHelper.insertOrUpdateProfile(newUserIdStr, userProfile);
+
+            if (!TextUtils.isEmpty(creatingDoctorId)) {
+                dbHelper.assignPatientToDoctor(creatingDoctorId, newUserIdStr);
+            }
+
+            Snackbar.make(findViewById(android.R.id.content), 
+                "Created new patient profile", 
+                Snackbar.LENGTH_SHORT).show();
+
+            return newUserIdStr;
         } else {
-            dbHelper.insertOrUpdateProfile(currentUserId, userProfile);
-            return currentUserId;
+            Snackbar.make(findViewById(android.R.id.content), 
+                "Failed to create new patient profile", 
+                Snackbar.LENGTH_SHORT).show();
+            return "";
         }
     }
 
     private static final int BODY_TYPE_QUIZ_REQUEST_CODE = 1001;
-
-    /**
-     * Saves the current form data to SharedPreferences when the activity is paused.
-     * This ensures that the data is retained when the user navigates away from the activity
-     * and then returns to it.
-     */
-    @Override
-    protected void onPause() {
-        super.onPause();
-        saveFormData();
-    }
-
-    /**
-     * Saves the current form data to SharedPreferences.
-     */
-    private void saveFormData() {
-        SharedPreferences sharedPreferences = getSharedPreferences(PREF_TEMP_DATA, MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-
-        // Save basic information
-        editor.putString(KEY_CNP, editTextCnp.getText().toString());
-        editor.putString(KEY_NAME, editTextName.getText().toString());
-        editor.putString(KEY_AGE, editTextAge.getText().toString());
-        editor.putString(KEY_HEIGHT, editTextHeight.getText().toString());
-        editor.putString(KEY_WEIGHT, editTextWeight.getText().toString());
-
-        // Save additional health metrics
-        editor.putString(KEY_BODY_FAT, editTextBodyFat.getText().toString());
-        editor.putString(KEY_BP_SYSTOLIC, editTextBPSystolic.getText().toString());
-        editor.putString(KEY_BP_DIASTOLIC, editTextBPDiastolic.getText().toString());
-        editor.putString(KEY_HR, editTextHR.getText().toString());
-        editor.putString(KEY_BLOOD_GLUCOSE, editTextBloodGlucose.getText().toString());
-        editor.putString(KEY_CHOLESTEROL_TOTAL, editTextCholesterolTotal.getText().toString());
-        editor.putString(KEY_CHOLESTEROL_HDL, editTextCholesterolHDL.getText().toString());
-        editor.putString(KEY_CHOLESTEROL_LDL, editTextCholesterolLDL.getText().toString());
-
-        if (textViewBodyType.getVisibility() == View.VISIBLE && textViewBodyType.getText() != null) {
-            editor.putString(KEY_BODY_TYPE, textViewBodyType.getText().toString());
-        } else {
-            editor.putString(KEY_BODY_TYPE, "");
-        }
-
-        editor.apply();
-    }
-
-    /**
-     * Restores the form data from SharedPreferences.
-     */
-    private void restoreFormData() {
-        SharedPreferences sharedPreferences = getSharedPreferences(PREF_TEMP_DATA, MODE_PRIVATE);
-
-        // Restore basic information
-        String cnp = sharedPreferences.getString(KEY_CNP, "");
-        String name = sharedPreferences.getString(KEY_NAME, "");
-        String age = sharedPreferences.getString(KEY_AGE, "");
-        String height = sharedPreferences.getString(KEY_HEIGHT, "");
-        String weight = sharedPreferences.getString(KEY_WEIGHT, "");
-
-        // Restore additional health metrics
-        String bodyFat = sharedPreferences.getString(KEY_BODY_FAT, "");
-        String bpSystolic = sharedPreferences.getString(KEY_BP_SYSTOLIC, "");
-        String bpDiastolic = sharedPreferences.getString(KEY_BP_DIASTOLIC, "");
-        String hr = sharedPreferences.getString(KEY_HR, "");
-        String bloodGlucose = sharedPreferences.getString(KEY_BLOOD_GLUCOSE, "");
-        String cholesterolTotal = sharedPreferences.getString(KEY_CHOLESTEROL_TOTAL, "");
-        String cholesterolHDL = sharedPreferences.getString(KEY_CHOLESTEROL_HDL, "");
-        String cholesterolLDL = sharedPreferences.getString(KEY_CHOLESTEROL_LDL, "");
-        String bodyType = sharedPreferences.getString(KEY_BODY_TYPE, "");
-
-        // Set values to form fields if they are not empty
-        if (!cnp.isEmpty()) editTextCnp.setText(cnp);
-        if (!name.isEmpty()) editTextName.setText(name);
-        if (!age.isEmpty()) editTextAge.setText(age);
-        if (!height.isEmpty()) editTextHeight.setText(height);
-        if (!weight.isEmpty()) editTextWeight.setText(weight);
-        if (!bodyFat.isEmpty()) editTextBodyFat.setText(bodyFat);
-        if (!bpSystolic.isEmpty()) editTextBPSystolic.setText(bpSystolic);
-        if (!bpDiastolic.isEmpty()) editTextBPDiastolic.setText(bpDiastolic);
-        if (!hr.isEmpty()) editTextHR.setText(hr);
-        if (!bloodGlucose.isEmpty()) editTextBloodGlucose.setText(bloodGlucose);
-        if (!cholesterolTotal.isEmpty()) editTextCholesterolTotal.setText(cholesterolTotal);
-        if (!cholesterolHDL.isEmpty()) editTextCholesterolHDL.setText(cholesterolHDL);
-        if (!cholesterolLDL.isEmpty()) editTextCholesterolLDL.setText(cholesterolLDL);
-
-        // Set body type if available
-        if (!bodyType.isEmpty()) {
-            textViewBodyType.setText(bodyType);
-            textViewBodyType.setVisibility(View.VISIBLE);
-        }
-    }
-
-    /**
-     * Clears the saved form data from SharedPreferences.
-     * This should be called when the form is successfully submitted.
-     */
-    private void clearSavedFormData() {
-        SharedPreferences sharedPreferences = getSharedPreferences(PREF_TEMP_DATA, MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.clear();
-        editor.apply();
-    }
 
     @SuppressLint({"WrongConstant", "SetTextI18n"})
     @Override
@@ -346,9 +246,7 @@ public class DrProfileActivity extends BaseActivity {
         bottomNav.setVisibility(View.GONE);
 
         SharedPreferences sharedPreferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
-        String userId = sharedPreferences.getString("userId", "");
         DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
-        String curr_user = sharedPreferences.getString("userId", "");
 
         editTextCnp = findViewById(R.id.editTextCnp);
         editTextName = findViewById(R.id.editTextName);
@@ -367,6 +265,10 @@ public class DrProfileActivity extends BaseActivity {
         Button buttonBodyTypeQuiz = findViewById(R.id.buttonBodyTypeQuiz);
         textViewBodyType = findViewById(R.id.textViewBodyType);
 
+        spinnerGender = findViewById(R.id.spinnerGender);
+        String[] genderOptions = getResources().getStringArray(R.array.gender_options);
+        spinnerGender.setSimpleItems(genderOptions);
+
         textViewGeneratedUsername = findViewById(R.id.textViewGeneratedUsername);
         textViewGeneratedPassword = findViewById(R.id.textViewGeneratedPassword);
 
@@ -379,22 +281,13 @@ public class DrProfileActivity extends BaseActivity {
             viewingPatientId = getIntent().getStringExtra("patient_id");
         }
 
-        if (!isViewingPatientProfile && !isCreatingNewPatient) {
-            restoreFormData();
-        }
-
         if (isViewingPatientProfile && !TextUtils.isEmpty(viewingPatientId)) {
             ImageView titleImage = findViewById(R.id.image);
             titleImage.setImageResource(R.drawable.title_profile);
 
-            bottomNav.setVisibility(View.GONE);
-            buttonSubmitProfile.setVisibility(View.GONE);
-            buttonBodyTypeQuiz.setVisibility(View.GONE);
-
-            // Load the patient's information
             User patient = dbHelper.getUser(viewingPatientId);
-            if (patient != null && patient.getUserProfile() != null) {
-                UserProfile userProfile = patient.getUserProfile();
+            if (patient != null && patient.getPatient() != null) {
+                Patient userProfile = patient.getPatient();
                 if (userProfile.getCnp() != null && !userProfile.getCnp().isEmpty()) {
                     editTextCnp.setText(userProfile.getCnp());
                 }
@@ -436,10 +329,14 @@ public class DrProfileActivity extends BaseActivity {
                 }
                 textViewBodyType.setVisibility(View.VISIBLE);
 
+                String gender = userProfile.getGender();
+                if (gender != null && !gender.isEmpty() && spinnerGender != null) {
+                    spinnerGender.setText(gender, false);
+                }
+
                 editTextCnp.setEnabled(false);
 
                 if (isEditingPatientProfile) {
-                    // Make all fields except CNP editable
                     editTextName.setEnabled(true);
                     editTextAge.setEnabled(true);
                     editTextHeight.setEnabled(true);
@@ -452,35 +349,26 @@ public class DrProfileActivity extends BaseActivity {
                     editTextCholesterolTotal.setEnabled(true);
                     editTextCholesterolHDL.setEnabled(true);
                     editTextCholesterolLDL.setEnabled(true);
+                    spinnerGender.setEnabled(true);
 
-                    buttonSubmitProfile.setVisibility(View.VISIBLE);
-                    buttonBodyTypeQuiz.setVisibility(View.VISIBLE);
-                } else {
-                    // Set all form fields to be non-editable
-                    editTextName.setEnabled(false);
-                    editTextAge.setEnabled(false);
-                    editTextHeight.setEnabled(false);
-                    editTextWeight.setEnabled(false);
-                    editTextBodyFat.setEnabled(false);
-                    editTextBPSystolic.setEnabled(false);
-                    editTextBPDiastolic.setEnabled(false);
-                    editTextHR.setEnabled(false);
-                    editTextBloodGlucose.setEnabled(false);
-                    editTextCholesterolTotal.setEnabled(false);
-                    editTextCholesterolHDL.setEnabled(false);
-                    editTextCholesterolLDL.setEnabled(false);
                 }
-
                 View credentialsContainer = findViewById(R.id.credentialsContainer);
                 credentialsContainer.setVisibility(View.VISIBLE);
 
-                originalUsername = generateUsername(userProfile.getName());
-                originalPassword = generatePassword(userProfile.getName(), userProfile.getCnp());
+                // Retrieve the actual username and password from the database
+                String[] credentials = dbHelper.getUserCredentials(viewingPatientId);
+                if (credentials != null) {
+                    originalUsername = credentials[0];
+                    originalPassword = credentials[1];
+                } else {
+                    // Fallback to generated credentials if retrieval fails
+                    originalUsername = generateUsername(userProfile.getName());
+                    originalPassword = generatePassword(userProfile.getName(), userProfile.getCnp());
+                }
 
                 updateGeneratedCredentials(userProfile.getName(), userProfile.getCnp());
             }
         }
-        // If we're creating a new patient, show the credentials container and set up the UI
         else if (isCreatingNewPatient) {
             creatingDoctorId = sharedPreferences.getString("userId", "");
 
@@ -489,8 +377,6 @@ public class DrProfileActivity extends BaseActivity {
 
             ImageView titleImage = findViewById(R.id.image);
             titleImage.setImageResource(R.drawable.title_profile);
-
-            bottomNav.setVisibility(View.GONE);
 
             editTextName.addTextChangedListener(new android.text.TextWatcher() {
                 @Override
@@ -519,7 +405,6 @@ public class DrProfileActivity extends BaseActivity {
             });
         }
 
-        // Set up Body Type Quiz button click listener
         buttonBodyTypeQuiz.setOnClickListener(v -> {
             Intent intent = new Intent(DrProfileActivity.this, DrQuizActivity.class);
             startActivityForResult(intent, BODY_TYPE_QUIZ_REQUEST_CODE);
@@ -537,11 +422,19 @@ public class DrProfileActivity extends BaseActivity {
                         return;
                     }
 
-                    UserProfile existingProfile = dbHelper.getUserProfileByCnp(cnp);
+                    if (!cnp.isEmpty()) {
+                        char firstDigit = cnp.charAt(0);
+                        if (firstDigit == '1' || firstDigit == '5') {
+                            spinnerGender.setText("male", false);
+                        } else if (firstDigit == '2' || firstDigit == '6') {
+                            spinnerGender.setText("female", false);
+                        }
+                    }
+
+                    Patient existingProfile = dbHelper.getPatientByCnp(cnp);
                     if (existingProfile != null) {
                         lastLoadedCnp = cnp;
 
-                        // Auto-populate fields with existing data
                         editTextName.setText(existingProfile.getName());
                         editTextAge.setText(String.valueOf(existingProfile.getAge()));
                         editTextHeight.setText(String.valueOf(existingProfile.getHeight()));
@@ -601,7 +494,7 @@ public class DrProfileActivity extends BaseActivity {
                 }
             }
 
-            if (TextUtils.isEmpty(cnp) || TextUtils.isEmpty(name) || TextUtils.isEmpty(ageTxt) 
+            if (TextUtils.isEmpty(cnp) || TextUtils.isEmpty(name) || TextUtils.isEmpty(ageTxt)
                     || TextUtils.isEmpty(heightTxt) || TextUtils.isEmpty(weightTxt)) {
                 Snackbar
                         .make(findViewById(android.R.id.content), "Please fill out all required fields!",
@@ -625,8 +518,16 @@ public class DrProfileActivity extends BaseActivity {
                 float height = Float.parseFloat(heightTxt);
                 float weight = Float.parseFloat(weightTxt);
 
-                UserProfile userProfile = new UserProfile(name, age, height, weight, "");
+                Patient userProfile = new Patient(name, age, height, weight, "");
                 userProfile.setCnp(cnp);
+
+                if (isEditingPatientProfile && !TextUtils.isEmpty(viewingPatientId)) {
+                    User existingPatient = dbHelper.getUser(viewingPatientId);
+                    if (existingPatient != null && existingPatient.getPatient() != null) {
+                        int existingHealthScore = existingPatient.getPatient().getHealthScore();
+                        userProfile.setHealthScore(existingHealthScore);
+                    }
+                }
 
                 if (textViewBodyType.getVisibility() == View.VISIBLE && textViewBodyType.getText() != null) {
                     String bodyType = textViewBodyType.getText().toString();
@@ -635,7 +536,11 @@ public class DrProfileActivity extends BaseActivity {
                     }
                 }
 
-                // Get values from additional health metrics fields
+                if (spinnerGender != null && spinnerGender.getText() != null && !spinnerGender.getText().toString().isEmpty()) {
+                    String gender = spinnerGender.getText().toString();
+                    userProfile.setGender(gender);
+                }
+
                 String bodyFatTxt = editTextBodyFat.getText().toString();
                 String bpSystolicTxt = editTextBPSystolic.getText().toString();
                 String bpDiastolicTxt = editTextBPDiastolic.getText().toString();
@@ -670,23 +575,37 @@ public class DrProfileActivity extends BaseActivity {
                     userProfile.setCholesterolLDL(Float.parseFloat(cholesterolLDLTxt));
                 }
 
-                String userIdToUpdate = isEditingPatientProfile ? viewingPatientId : curr_user;
+                final String finalUserId;
+                if (isEditingPatientProfile && !TextUtils.isEmpty(viewingPatientId)) {
+                    int currentHealthScore = userProfile.getHealthScore();
 
-                final String finalUserId = handleProfileSubmission(userIdToUpdate, cnp, userProfile, dbHelper);
+                    dbHelper.insertOrUpdateProfile(viewingPatientId, userProfile);
+                    finalUserId = viewingPatientId;
+
+                    Log.d("ProfileSetupActivity", "Health score after initial profile update: " + userProfile.getHealthScore() +
+                          " (was " + currentHealthScore + ")");
+
+                    Snackbar.make(findViewById(android.R.id.content),
+                        "Updated patient profile",
+                        Snackbar.LENGTH_SHORT).show();
+                } else {
+                    finalUserId = handleProfileSubmission(cnp, userProfile, dbHelper);
+                    if (TextUtils.isEmpty(finalUserId)) {
+                        dialog.dismiss();
+                        return;
+                    }
+                }
 
                 float heightInMeters = height / 100;
                 float BMI = weight / (heightInMeters * heightInMeters);
 
                 ExecutorService executor = Executors.newSingleThreadExecutor();
-
                 Handler handler = new Handler(Looper.getMainLooper());
-
                 OpenAiService service = new OpenAiService(TokenData.OPEN_AI_SERVICE_KEY.getToken());
 
                 executor.execute(() -> {
                     try {
 
-                        // Generate BMI interpretation
                         String bmiPrompt = userProfile.getAge() + " year old having " + userProfile.getHeight()
                                 + " cm "
                                 + " and " + userProfile.getWeight() + " kg and " + BMI
@@ -698,34 +617,12 @@ public class DrProfileActivity extends BaseActivity {
                                         new ChatMessage("user", bmiPrompt)
                                 ))
                                 .build();
-
                         ChatCompletionResult bmiResult = service.createChatCompletion(bmiRequest);
 
                         String bmiResponse = bmiResult.getChoices().get(0).getMessage().getContent()
                                 .replace('*', ' ')
                                 .replace('#', ' ');
-                        String bmiKey = "BMI#" + BMI + "#" + LocalDateTime.now();
-
-                        String sessionUserId = finalUserId;
-                        if (isEditingPatientProfile) {
-                            sessionUserId = viewingPatientId;
-                        } else if (isCreatingNewPatient) {
-                            List<User> doctorPatients = dbHelper.getPatientsForDoctor(creatingDoctorId);
-
-                            for (User patient : doctorPatients) {
-                                if (patient.getUserProfile() != null && 
-                                    cnp.equals(patient.getUserProfile().getCnp())) {
-                                    sessionUserId = patient.getUserId();
-                                    break;
-                                }
-                            }
-                        }
-
-                        long bmiId = dbHelper.insertOnSession(sessionUserId, bmiKey, bmiResponse);
-
-                        SharedPreferences.Editor editor =
-                                getSharedPreferences("PREFERENCE", MODE_PRIVATE).edit();
-                        editor.putString(bmiKey, String.valueOf(bmiId));
+                        userProfile.setBmiInterpretation(bmiResponse);
 
                         StringBuilder metabolicPrompt = new StringBuilder();
                         metabolicPrompt.append(userProfile.getAge()).append(" year old having ").append(userProfile.getHeight()).append(" cm and ").append(userProfile.getWeight()).append(" kg");
@@ -767,7 +664,7 @@ public class DrProfileActivity extends BaseActivity {
                         metabolicPrompt.append("\n2. Potential metabolic risks or concerns");
                         metabolicPrompt.append("\n3. Specific recommendations for improving metabolic health");
                         metabolicPrompt.append("\n4. Lifestyle changes that would benefit this individual");
-                        metabolicPrompt.append("\n5. A health score out of 100 that represents how well this patient compares to the average patient of similar age, height, and weight. Format this as 'HEALTH_SCORE: X' where X is a number between 0 and 100.");
+                        metabolicPrompt.append("\n5. A health score out of 100 that represents how well this patient compares to the average patient of similar age, height, and weight. Format this as 'HEALTH_SCORE: X' where X is a number between 0 and 100. IMPORTANT: Do not penalize the health score for missing cholesterol values or any other values that are not provided or they are equal with 0.0. Only consider values that are explicitly provided (values > 0) when calculating the health score.");
 
                         ChatCompletionRequest metabolicRequest = ChatCompletionRequest.builder()
                                 .model("gpt-3.5-turbo")
@@ -775,27 +672,32 @@ public class DrProfileActivity extends BaseActivity {
                                         new ChatMessage("user", metabolicPrompt.toString())
                                 ))
                                 .build();
-
                         ChatCompletionResult metabolicResult = service.createChatCompletion(metabolicRequest);
 
                         String metabolicResponse = metabolicResult.getChoices().get(0).getMessage().getContent()
                                 .replace('*', ' ')
                                 .replace('#', ' ');
-                        String metabolicKey = "Metabolic#Balance#" + LocalDateTime.now();
+                        userProfile.setMetabolicInterpretation(metabolicResponse);
 
-                        long metabolicId = dbHelper.insertOnSession(sessionUserId, metabolicKey, metabolicResponse);
-
-                        editor.putString(metabolicKey, String.valueOf(metabolicId));
-
-                        int healthScore = 0;
                         String[] lines = metabolicResponse.split("\n");
+                        boolean foundHealthScore = false;
                         for (String line : lines) {
                             if (line.contains("HEALTH_SCORE")) {
                                 try {
                                     String scoreStr = line.substring(line.indexOf(":") + 1).trim();
                                     scoreStr = scoreStr.replaceAll("[^0-9]", "");
-                                    healthScore = Integer.parseInt(scoreStr);
-                                    healthScore = Math.max(0, Math.min(100, healthScore));
+                                    int newHealthScore = Integer.parseInt(scoreStr);
+                                    newHealthScore = Math.max(0, Math.min(100, newHealthScore));
+
+                                    if (newHealthScore > 0) {
+                                        Log.d("ProfileSetupActivity", "Changing health score from " +
+                                              userProfile.getHealthScore() + " to " + newHealthScore);
+                                        userProfile.setHealthScore(newHealthScore);
+                                        foundHealthScore = true;
+                                    } else {
+                                        Log.d("ProfileSetupActivity", "Invalid health score found: " + newHealthScore + 
+                                              ". Keeping existing health score: " + userProfile.getHealthScore());
+                                    }
                                     break;
                                 } catch (Exception e) {
                                     Log.e("ProfileSetupActivity", "Error parsing health score: " + e.getMessage());
@@ -803,36 +705,13 @@ public class DrProfileActivity extends BaseActivity {
                             }
                         }
 
-                        userProfile.setHealthScore(healthScore);
-
-                        if (isCreatingNewPatient) {
-                            List<User> doctorPatients = dbHelper.getPatientsForDoctor(creatingDoctorId);
-
-                            String patientId = null;
-                            for (User patient : doctorPatients) {
-                                if (patient.getUserProfile() != null && 
-                                    cnp.equals(patient.getUserProfile().getCnp())) {
-                                    patientId = patient.getUserId();
-                                    break;
-                                }
-                            }
-
-                            if (patientId != null) {
-                                dbHelper.insertOrUpdateProfile(patientId, userProfile);
-                            } else {
-                                Log.e("ProfileSetupActivity", "Could not find patient with CNP: " + cnp);
-                            }
-                        } else if (isEditingPatientProfile) {
-                            dbHelper.insertOrUpdateProfile(viewingPatientId, userProfile);
-                        } else {
-                            dbHelper.insertOrUpdateProfile(finalUserId, userProfile);
+                        if (!foundHealthScore) {
+                            Log.d("ProfileSetupActivity", "No valid health score found in response. " + 
+                                  "Keeping existing health score: " + userProfile.getHealthScore());
                         }
 
-                        editor.apply();
-
+                        dbHelper.insertOrUpdateProfile(finalUserId, userProfile);
                         dialog.dismiss();
-
-                        clearSavedFormData();
 
                         if (isCreatingNewPatient) {
                             Intent intent = new Intent(DrProfileActivity.this, DrDashboardActivity.class);

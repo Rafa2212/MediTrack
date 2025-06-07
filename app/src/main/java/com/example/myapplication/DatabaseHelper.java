@@ -14,13 +14,11 @@ import android.database.sqlite.SQLiteOpenHelper;
  * medical reports, and notifications.
  */
 public class DatabaseHelper extends SQLiteOpenHelper {
-    private static final String DATABASE_NAME = "medications.db";
-    private static final int DATABASE_VERSION = 43;
+    private static final String DATABASE_NAME = "meditrack.db";
+    private static final int DATABASE_VERSION = 66;
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";
-    public static final String TABLE_MEDICATIONS = "medications";
-    public static final String TABLE_USER_MEDICATIONS = "user_medications";
     public static final String TABLE_DOCTOR_PATIENTS = "doctor_patients";
     public static final String TABLE_MEDICAL_REPORTS = "medical_reports";
     public static final String TABLE_NOTIFICATIONS = "notifications";
@@ -30,29 +28,38 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_PASSWORD = "password";
     public static final String COLUMN_USER_ROLE = "role";
 
-    public static final String TABLE_PROFILE = "profile";
+    public static final String TABLE_PATIENTS = "patients";
+    public static final String TABLE_DOCTORS = "doctors";
     public static final String COLUMN_NAME = "name";
     public static final String COLUMN_AGE = "age";
     public static final String COLUMN_HEIGHT = "height";
     public static final String COLUMN_WEIGHT = "weight";
     private static final String COLUMN_LAST_MED_REP = "last_medical_report";
+    public static final String COLUMN_CNP = "cnp";
+    public static final String COLUMN_BODY_FAT_PERCENTAGE = "body_fat_percentage";
+    public static final String COLUMN_BLOOD_PRESSURE_SYSTOLIC = "blood_pressure_systolic";
+    public static final String COLUMN_BLOOD_PRESSURE_DIASTOLIC = "blood_pressure_diastolic";
+    public static final String COLUMN_RESTING_HEART_RATE = "resting_heart_rate";
+    public static final String COLUMN_BLOOD_GLUCOSE = "blood_glucose";
+    public static final String COLUMN_CHOLESTEROL_TOTAL = "cholesterol_total";
+    public static final String COLUMN_CHOLESTEROL_HDL = "cholesterol_hdl";
+    public static final String COLUMN_CHOLESTEROL_LDL = "cholesterol_ldl";
+    public static final String COLUMN_HEALTH_SCORE = "health_score";
+    public static final String COLUMN_BODY_TYPE = "body_type";
+    public static final String COLUMN_GENDER = "gender";
+    public static final String COLUMN_BMI_INTERPRETATION = "bmi_interpretation";
+    public static final String COLUMN_METABOLIC_INTERPRETATION = "metabolic_interpretation";
+    public static final String COLUMN_SPECIALTY = "specialty";
 
-    public static final String TABLE_DISEASES = "diseases";
     public static final String TABLE_USER_DISEASES = "user_diseases";
 
-    public static final String COLUMN_DISEASE_ID = "id";
     public static final String COLUMN_ICD10 = "icd10";
     public static final String COLUMN_DISEASE_DESCRIPTION = "disease_description";
 
     public static final String COLUMN_USER_DISEASE_ID = "id";
     public static final String COLUMN_USER_ID_FK_DISEASE = "id_fk_user";
-    public static final String COLUMN_DISEASE_ID_FK = "id_fk_disease";
 
-    public static final String TABLE_SHAREDPREF = "sharedpref";
-    public static final String COLUMN_SHAREDPREF_ID = "id";
-    public static final String COLUMN_SHAREDPREF_USER_ID = "id_user";
-    public static final String COLUMN_SHAREDPREF_KEY = "key_string";
-    public static final String COLUMN_SHAREDPREF_VALUE = "value";
+
 
     public static final String COLUMN_DOCTOR_PATIENT_ID = "id";
     public static final String COLUMN_DOCTOR_ID_FK = "doctor_id_fk";
@@ -72,45 +79,46 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_NOTIFICATION_READ = "is_read";
     public static final String COLUMN_NOTIFICATION_TYPE = "type";
 
-    private static final String CREATE_TABLE_DISEASES = "CREATE TABLE IF NOT EXISTS " + TABLE_DISEASES
-            + " (" + COLUMN_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + COLUMN_DISEASE_DESCRIPTION + " TEXT, " + COLUMN_ICD10 + " TEXT)";
 
     private static final String CREATE_TABLE_USER_DISEASES = "CREATE TABLE IF NOT EXISTS "
             + TABLE_USER_DISEASES + " (" + COLUMN_USER_DISEASE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + COLUMN_USER_ID_FK_DISEASE + " INTEGER, " + COLUMN_DISEASE_ID_FK + " INTEGER, "
+            + COLUMN_USER_ID_FK_DISEASE + " INTEGER, "
             + COLUMN_DOCTOR_ID_FK + " INTEGER, " + "diagnosis_date TEXT, "
+            + COLUMN_DISEASE_DESCRIPTION + " TEXT, " + COLUMN_ICD10 + " TEXT, "
+            + "interpretation TEXT, " + "disease_key TEXT, "
             + "FOREIGN KEY (" + COLUMN_USER_ID_FK_DISEASE + ") REFERENCES " + TABLE_USERS + "("
             + COLUMN_USER_ID + "), "
-            + "FOREIGN KEY (" + COLUMN_DISEASE_ID_FK + ") REFERENCES " + TABLE_DISEASES + "("
-            + COLUMN_DISEASE_ID + "), "
             + "FOREIGN KEY (" + COLUMN_DOCTOR_ID_FK + ") REFERENCES " + TABLE_USERS + "("
             + COLUMN_USER_ID + "))";
 
-    private static final String CREATE_TABLE_PROFILE = "CREATE TABLE IF NOT EXISTS " + TABLE_PROFILE
-            + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + "cnp TEXT, " + COLUMN_NAME + " TEXT, "
+    private static final String CREATE_TABLE_PATIENTS = "CREATE TABLE IF NOT EXISTS " + TABLE_PATIENTS
+            + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY, " + COLUMN_CNP + " TEXT, " + COLUMN_NAME + " TEXT, "
             + COLUMN_AGE + " INTEGER, " + COLUMN_HEIGHT + " FLOAT, "
             + COLUMN_WEIGHT + " FLOAT, " + COLUMN_LAST_MED_REP + " TEXT, "
-            + "body_fat_percentage FLOAT, "
-            + "blood_pressure_systolic INTEGER, "
-            + "blood_pressure_diastolic INTEGER, "
-            + "resting_heart_rate INTEGER, "
-            + "blood_glucose FLOAT, "
-            + "cholesterol_total FLOAT, "
-            + "cholesterol_hdl FLOAT, "
-            + "cholesterol_ldl FLOAT, "
-            + "health_score INTEGER, "
-            + "body_type TEXT, "
-            + "specialty TEXT ) ";
+            + COLUMN_BODY_FAT_PERCENTAGE + " FLOAT, "
+            + COLUMN_BLOOD_PRESSURE_SYSTOLIC + " INTEGER, "
+            + COLUMN_BLOOD_PRESSURE_DIASTOLIC + " INTEGER, "
+            + COLUMN_RESTING_HEART_RATE + " INTEGER, "
+            + COLUMN_BLOOD_GLUCOSE + " FLOAT, "
+            + COLUMN_CHOLESTEROL_TOTAL + " FLOAT, "
+            + COLUMN_CHOLESTEROL_HDL + " FLOAT, "
+            + COLUMN_CHOLESTEROL_LDL + " FLOAT, "
+            + COLUMN_HEALTH_SCORE + " INTEGER, "
+            + COLUMN_BODY_TYPE + " TEXT, "
+            + COLUMN_GENDER + " TEXT, "
+            + COLUMN_BMI_INTERPRETATION + " TEXT, "
+            + COLUMN_METABOLIC_INTERPRETATION + " TEXT, "
+            + "FOREIGN KEY (" + COLUMN_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
+
+    private static final String CREATE_TABLE_DOCTORS = "CREATE TABLE IF NOT EXISTS " + TABLE_DOCTORS
+            + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY, " + COLUMN_NAME + " TEXT, "
+            + COLUMN_SPECIALTY + " TEXT, "
+            + "FOREIGN KEY (" + COLUMN_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
 
     private static final String CREATE_TABLE_USERS = "CREATE TABLE IF NOT EXISTS " + TABLE_USERS
             + " (" + COLUMN_USER_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " + COLUMN_USERNAME + " TEXT, "
             + COLUMN_PASSWORD + " TEXT, " + COLUMN_USER_ROLE + " TEXT DEFAULT 'patient')";
 
-    private static final String CREATE_TABLE_SHAREDPREF = "CREATE TABLE IF NOT EXISTS "
-            + TABLE_SHAREDPREF + " (" + COLUMN_SHAREDPREF_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
-            + COLUMN_SHAREDPREF_USER_ID + " INTEGER, " + COLUMN_SHAREDPREF_KEY + " TEXT, "
-            + COLUMN_SHAREDPREF_VALUE + " TEXT)";
 
     private static final String CREATE_TABLE_DOCTOR_PATIENTS = "CREATE TABLE IF NOT EXISTS "
             + TABLE_DOCTOR_PATIENTS + " (" + COLUMN_DOCTOR_PATIENT_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -132,6 +140,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + COLUMN_NOTIFICATION_DATE + " TEXT, " + COLUMN_NOTIFICATION_READ + " INTEGER, "
             + COLUMN_NOTIFICATION_TYPE + " TEXT, "
             + "FOREIGN KEY (" + COLUMN_NOTIFICATION_USER_ID + ") REFERENCES " + TABLE_USERS + "(" + COLUMN_USER_ID + "))";
+
 
     /**
      * Constructor for the DatabaseHelper.
@@ -166,10 +175,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_TABLE_USERS);
-        db.execSQL(CREATE_TABLE_PROFILE);
-        db.execSQL(CREATE_TABLE_DISEASES);
+        db.execSQL(CREATE_TABLE_PATIENTS);
+        db.execSQL(CREATE_TABLE_DOCTORS);
         db.execSQL(CREATE_TABLE_USER_DISEASES);
-        db.execSQL(CREATE_TABLE_SHAREDPREF);
         db.execSQL(CREATE_TABLE_DOCTOR_PATIENTS);
         db.execSQL(CREATE_TABLE_MEDICAL_REPORTS);
         db.execSQL(CREATE_TABLE_NOTIFICATIONS);
@@ -187,19 +195,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
      */
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion < 32 && newVersion >= 32) {
-            try {
-                db.execSQL("ALTER TABLE " + TABLE_PROFILE + " ADD COLUMN body_type TEXT");
-            } catch (Exception ignored) {
-            }
-        } else {
+        if (newVersion > 1) {
+            // For older versions or newer versions > 1, just recreate all tables
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_PROFILE);
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICATIONS);
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_MEDICATIONS);
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_DISEASES);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_PATIENTS);
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_DOCTORS);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_USER_DISEASES);
-            db.execSQL("DROP TABLE IF EXISTS " + TABLE_SHAREDPREF);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_DOCTOR_PATIENTS);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEDICAL_REPORTS);
             db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTIFICATIONS);
@@ -211,106 +212,153 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     /**
      * Retrieves a user's profile from the database.
      * Fetches all profile information including basic details and health metrics.
+     * Depending on the user's role, it will retrieve data from either the patients or doctors table.
      *
      * @param userId The ID of the user whose profile to retrieve
-     * @return The UserProfile object containing all profile information, or null if no profile exists
+     * @return The Object (either Patient or Doctor) containing all profile information, or null if no profile exists
      */
-    public UserProfile getUserProfile(String userId) {
+    public Object getUserProfile(String userId) {
         SQLiteDatabase db = this.getReadableDatabase();
-        UserProfile userProfile = null;
 
-        String[] columns = {
-            "cnp",
-            COLUMN_NAME, 
-            COLUMN_AGE, 
-            COLUMN_HEIGHT, 
-            COLUMN_WEIGHT, 
-            COLUMN_LAST_MED_REP,
-            "body_fat_percentage",
-            "blood_pressure_systolic",
-            "blood_pressure_diastolic",
-            "resting_heart_rate",
-            "blood_glucose",
-            "cholesterol_total",
-            "cholesterol_hdl",
-            "cholesterol_ldl",
-            "health_score",
-            "body_type",
-            "specialty"
-        };
+        // First, determine the user's role
+        String role = "";
+        Cursor roleCursor = db.query(TABLE_USERS, new String[]{COLUMN_USER_ROLE}, 
+                COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null);
+        if (roleCursor != null && roleCursor.moveToFirst()) {
+            @SuppressLint("Range") 
+            String userRole = roleCursor.getString(roleCursor.getColumnIndex(COLUMN_USER_ROLE));
+            role = userRole;
+            roleCursor.close();
+        }
 
-        try (Cursor cursor = db.query(TABLE_PROFILE, columns, COLUMN_USER_ID + "=?", new String[]{userId},
-                null, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                @SuppressLint("Range") String cnp = cursor.getString(cursor.getColumnIndex("cnp"));
-                @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
-                @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
-                @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
-                @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
-                @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
+        if ("doctor".equals(role)) {
+            // Get doctor profile
+            Doctor doctor = null;
 
-                userProfile = new UserProfile(name, age, height, weight, lastMedicalReport);
-                if (cnp != null) {
-                    userProfile.setCnp(cnp);
-                }
+            String[] doctorColumns = {
+                COLUMN_NAME,
+                COLUMN_SPECIALTY
+            };
 
-                @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex("body_fat_percentage"));
-                if (bodyFatPercentage > 0) {
-                    userProfile.setBodyFatPercentage(bodyFatPercentage);
-                }
+            try (Cursor cursor = db.query(TABLE_DOCTORS, doctorColumns, COLUMN_USER_ID + "=?", new String[]{userId},
+                    null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
+                    @SuppressLint("Range") String specialty = cursor.getString(cursor.getColumnIndex(COLUMN_SPECIALTY));
 
-                @SuppressLint("Range") int bloodPressureSystolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_systolic"));
-                if (bloodPressureSystolic > 0) {
-                    userProfile.setBloodPressureSystolic(bloodPressureSystolic);
-                }
-
-                @SuppressLint("Range") int bloodPressureDiastolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_diastolic"));
-                if (bloodPressureDiastolic > 0) {
-                    userProfile.setBloodPressureDiastolic(bloodPressureDiastolic);
-                }
-
-                @SuppressLint("Range") int restingHeartRate = cursor.getInt(cursor.getColumnIndex("resting_heart_rate"));
-                if (restingHeartRate > 0) {
-                    userProfile.setRestingHeartRate(restingHeartRate);
-                }
-
-                @SuppressLint("Range") float bloodGlucose = cursor.getFloat(cursor.getColumnIndex("blood_glucose"));
-                if (bloodGlucose > 0) {
-                    userProfile.setBloodGlucose(bloodGlucose);
-                }
-
-                @SuppressLint("Range") float cholesterolTotal = cursor.getFloat(cursor.getColumnIndex("cholesterol_total"));
-                if (cholesterolTotal > 0) {
-                    userProfile.setCholesterolTotal(cholesterolTotal);
-                }
-
-                @SuppressLint("Range") float cholesterolHDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_hdl"));
-                if (cholesterolHDL > 0) {
-                    userProfile.setCholesterolHDL(cholesterolHDL);
-                }
-
-                @SuppressLint("Range") float cholesterolLDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_ldl"));
-                if (cholesterolLDL > 0) {
-                    userProfile.setCholesterolLDL(cholesterolLDL);
-                }
-
-                @SuppressLint("Range") int healthScore = cursor.getInt(cursor.getColumnIndex("health_score"));
-                if (healthScore > 0) {
-                    userProfile.setHealthScore(healthScore);
-                }
-
-                @SuppressLint("Range") String bodyType = cursor.getString(cursor.getColumnIndex("body_type"));
-                if (bodyType != null && !bodyType.isEmpty()) {
-                    userProfile.setBodyType(bodyType);
-                }
-
-                @SuppressLint("Range") String specialty = cursor.getString(cursor.getColumnIndex("specialty"));
-                if (specialty != null && !specialty.isEmpty()) {
-                    userProfile.setSpecialty(specialty);
+                    doctor = new Doctor(name, specialty);
                 }
             }
+            return doctor;
+        } else {
+            // Get patient profile
+            Patient patient = null;
+
+            String[] patientColumns = {
+                COLUMN_CNP,
+                COLUMN_NAME, 
+                COLUMN_AGE, 
+                COLUMN_HEIGHT, 
+                COLUMN_WEIGHT, 
+                COLUMN_LAST_MED_REP,
+                COLUMN_BODY_FAT_PERCENTAGE,
+                COLUMN_BLOOD_PRESSURE_SYSTOLIC,
+                COLUMN_BLOOD_PRESSURE_DIASTOLIC,
+                COLUMN_RESTING_HEART_RATE,
+                COLUMN_BLOOD_GLUCOSE,
+                COLUMN_CHOLESTEROL_TOTAL,
+                COLUMN_CHOLESTEROL_HDL,
+                COLUMN_CHOLESTEROL_LDL,
+                COLUMN_HEALTH_SCORE,
+                COLUMN_BODY_TYPE,
+                COLUMN_GENDER,
+                COLUMN_BMI_INTERPRETATION,
+                COLUMN_METABOLIC_INTERPRETATION
+            };
+
+            try (Cursor cursor = db.query(TABLE_PATIENTS, patientColumns, COLUMN_USER_ID + "=?", new String[]{userId},
+                    null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    @SuppressLint("Range") String cnp = cursor.getString(cursor.getColumnIndex(COLUMN_CNP));
+                    @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
+                    @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
+                    @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
+                    @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
+                    @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
+
+                    patient = new Patient(name, age, height, weight, lastMedicalReport);
+                    if (cnp != null) {
+                        patient.setCnp(cnp);
+                    }
+
+                    @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex(COLUMN_BODY_FAT_PERCENTAGE));
+                    if (bodyFatPercentage > 0) {
+                        patient.setBodyFatPercentage(bodyFatPercentage);
+                    }
+
+                    @SuppressLint("Range") int bloodPressureSystolic = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE_SYSTOLIC));
+                    if (bloodPressureSystolic > 0) {
+                        patient.setBloodPressureSystolic(bloodPressureSystolic);
+                    }
+
+                    @SuppressLint("Range") int bloodPressureDiastolic = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE_DIASTOLIC));
+                    if (bloodPressureDiastolic > 0) {
+                        patient.setBloodPressureDiastolic(bloodPressureDiastolic);
+                    }
+
+                    @SuppressLint("Range") int restingHeartRate = cursor.getInt(cursor.getColumnIndex(COLUMN_RESTING_HEART_RATE));
+                    if (restingHeartRate > 0) {
+                        patient.setRestingHeartRate(restingHeartRate);
+                    }
+
+                    @SuppressLint("Range") float bloodGlucose = cursor.getFloat(cursor.getColumnIndex(COLUMN_BLOOD_GLUCOSE));
+                    if (bloodGlucose > 0) {
+                        patient.setBloodGlucose(bloodGlucose);
+                    }
+
+                    @SuppressLint("Range") float cholesterolTotal = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_TOTAL));
+                    if (cholesterolTotal > 0) {
+                        patient.setCholesterolTotal(cholesterolTotal);
+                    }
+
+                    @SuppressLint("Range") float cholesterolHDL = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_HDL));
+                    if (cholesterolHDL > 0) {
+                        patient.setCholesterolHDL(cholesterolHDL);
+                    }
+
+                    @SuppressLint("Range") float cholesterolLDL = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_LDL));
+                    if (cholesterolLDL > 0) {
+                        patient.setCholesterolLDL(cholesterolLDL);
+                    }
+
+                    @SuppressLint("Range") int healthScore = cursor.getInt(cursor.getColumnIndex(COLUMN_HEALTH_SCORE));
+                    if (healthScore > 0) {
+                        patient.setHealthScore(healthScore);
+                    }
+
+                    @SuppressLint("Range") String bodyType = cursor.getString(cursor.getColumnIndex(COLUMN_BODY_TYPE));
+                    if (bodyType != null && !bodyType.isEmpty()) {
+                        patient.setBodyType(bodyType);
+                    }
+
+                    @SuppressLint("Range") String gender = cursor.getString(cursor.getColumnIndex(COLUMN_GENDER));
+                    if (gender != null && !gender.isEmpty()) {
+                        patient.setGender(gender);
+                    }
+
+                    @SuppressLint("Range") String bmiInterpretation = cursor.getString(cursor.getColumnIndex(COLUMN_BMI_INTERPRETATION));
+                    if (bmiInterpretation != null && !bmiInterpretation.isEmpty()) {
+                        patient.setBmiInterpretation(bmiInterpretation);
+                    }
+
+                    @SuppressLint("Range") String metabolicInterpretation = cursor.getString(cursor.getColumnIndex(COLUMN_METABOLIC_INTERPRETATION));
+                    if (metabolicInterpretation != null && !metabolicInterpretation.isEmpty()) {
+                        patient.setMetabolicInterpretation(metabolicInterpretation);
+                    }
+                }
+            }
+            return patient;
         }
-        return userProfile;
     }
 
     /**
@@ -318,48 +366,85 @@ public class DatabaseHelper extends SQLiteOpenHelper {
      * Saves all profile information including basic details and health metrics.
      * If a profile with the given userId already exists, it will be updated;
      * otherwise, a new profile will be created.
+     * Depending on the user's role and the type of profile object, it will insert/update
+     * either the patients or doctors table.
      *
      * @param userId The ID of the user whose profile to save or update
-     * @param userProfile The UserProfile object containing the profile information to save
+     * @param profile The Patient or Doctor object containing the profile information to save
      */
-    public void insertOrUpdateProfile(String userId, UserProfile userProfile) {
+    public void insertOrUpdateProfile(String userId, Object profile) {
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = null;
 
         try {
-            ContentValues values = new ContentValues();
-            values.put(COLUMN_USER_ID, userId);
-            values.put("cnp", userProfile.getCnp());
-            values.put(COLUMN_NAME, userProfile.getName());
-            values.put(COLUMN_AGE, userProfile.getAge());
-            values.put(COLUMN_HEIGHT, userProfile.getHeight());
-            values.put(COLUMN_WEIGHT, userProfile.getWeight());
-            values.put(COLUMN_LAST_MED_REP, userProfile.getLastMedicalReport());
-
-            values.put("body_fat_percentage", userProfile.getBodyFatPercentage());
-            values.put("blood_pressure_systolic", userProfile.getBloodPressureSystolic());
-            values.put("blood_pressure_diastolic", userProfile.getBloodPressureDiastolic());
-            values.put("resting_heart_rate", userProfile.getRestingHeartRate());
-            values.put("blood_glucose", userProfile.getBloodGlucose());
-            values.put("cholesterol_total", userProfile.getCholesterolTotal());
-            values.put("cholesterol_hdl", userProfile.getCholesterolHDL());
-            values.put("cholesterol_ldl", userProfile.getCholesterolLDL());
-            values.put("health_score", userProfile.getHealthScore());
-            values.put("body_type", userProfile.getBodyType());
-            values.put("specialty", userProfile.getSpecialty());
-
-            cursor = db.query(
-                    TABLE_PROFILE, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
-
-            db.beginTransaction();
-
-            if (cursor != null && cursor.getCount() > 0) {
-                db.update(TABLE_PROFILE, values, COLUMN_USER_ID + "=?", new String[] {userId});
-            } else {
-                db.insert(TABLE_PROFILE, null, values);
+            // First, determine the user's role
+            String role = "";
+            Cursor roleCursor = db.query(TABLE_USERS, new String[]{COLUMN_USER_ROLE}, 
+                    COLUMN_USER_ID + "=?", new String[]{userId}, null, null, null);
+            if (roleCursor != null && roleCursor.moveToFirst()) {
+                @SuppressLint("Range") 
+                String userRole = roleCursor.getString(roleCursor.getColumnIndex(COLUMN_USER_ROLE));
+                role = userRole;
+                roleCursor.close();
             }
 
-            db.setTransactionSuccessful();
+            if ("doctor".equals(role) && profile instanceof Doctor) {
+                Doctor doctor = (Doctor) profile;
+                ContentValues values = new ContentValues();
+                values.put(COLUMN_USER_ID, userId);
+                values.put(COLUMN_NAME, doctor.getName());
+                values.put(COLUMN_SPECIALTY, doctor.getSpecialty());
+
+                cursor = db.query(
+                        TABLE_DOCTORS, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
+
+                db.beginTransaction();
+
+                if (cursor != null && cursor.getCount() > 0) {
+                    db.update(TABLE_DOCTORS, values, COLUMN_USER_ID + "=?", new String[] {userId});
+                } else {
+                    db.insert(TABLE_DOCTORS, null, values);
+                }
+
+                db.setTransactionSuccessful();
+            } else if (profile instanceof Patient) {
+                Patient patient = (Patient) profile;
+                ContentValues values = new ContentValues();
+                values.put(COLUMN_USER_ID, userId);
+                values.put(COLUMN_CNP, patient.getCnp());
+                values.put(COLUMN_NAME, patient.getName());
+                values.put(COLUMN_AGE, patient.getAge());
+                values.put(COLUMN_HEIGHT, patient.getHeight());
+                values.put(COLUMN_WEIGHT, patient.getWeight());
+                values.put(COLUMN_LAST_MED_REP, patient.getLastMedicalReport());
+
+                values.put(COLUMN_BODY_FAT_PERCENTAGE, patient.getBodyFatPercentage());
+                values.put(COLUMN_BLOOD_PRESSURE_SYSTOLIC, patient.getBloodPressureSystolic());
+                values.put(COLUMN_BLOOD_PRESSURE_DIASTOLIC, patient.getBloodPressureDiastolic());
+                values.put(COLUMN_RESTING_HEART_RATE, patient.getRestingHeartRate());
+                values.put(COLUMN_BLOOD_GLUCOSE, patient.getBloodGlucose());
+                values.put(COLUMN_CHOLESTEROL_TOTAL, patient.getCholesterolTotal());
+                values.put(COLUMN_CHOLESTEROL_HDL, patient.getCholesterolHDL());
+                values.put(COLUMN_CHOLESTEROL_LDL, patient.getCholesterolLDL());
+                values.put(COLUMN_HEALTH_SCORE, patient.getHealthScore());
+                values.put(COLUMN_BODY_TYPE, patient.getBodyType());
+                values.put(COLUMN_GENDER, patient.getGender());
+                values.put(COLUMN_BMI_INTERPRETATION, patient.getBmiInterpretation());
+                values.put(COLUMN_METABOLIC_INTERPRETATION, patient.getMetabolicInterpretation());
+
+                cursor = db.query(
+                        TABLE_PATIENTS, null, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
+
+                db.beginTransaction();
+
+                if (cursor != null && cursor.getCount() > 0) {
+                    db.update(TABLE_PATIENTS, values, COLUMN_USER_ID + "=?", new String[] {userId});
+                } else {
+                    db.insert(TABLE_PATIENTS, null, values);
+                }
+
+                db.setTransactionSuccessful();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -371,15 +456,17 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Authenticates a user by checking if the provided username and password match a record in the database.
-     * If authentication is successful, returns a User object with the user's ID, profile, and role.
+     * Synchronous method to check user credentials and return a User object directly.
+     * This method uses the SQLite database to check the user credentials, making it
+     * backward compatible with the existing code.
      *
      * @param username The username to check
      * @param password The password to check
-     * @return A User object if authentication is successful, or null if the credentials are invalid
+     * @return The User object if authentication is successful, or null if it fails
      */
     public User checkUser(String username, String password) {
         SQLiteDatabase db = this.getReadableDatabase();
+        User user = null;
 
         String[] columns = {
                 COLUMN_USER_ID,
@@ -388,21 +475,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 COLUMN_USER_ROLE
         };
 
-        Cursor cursor =
-                db.query(TABLE_USERS, columns, COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?",
-                        new String[] {username, password}, null, null, null);
+        String selection = COLUMN_USERNAME + "=? AND " + COLUMN_PASSWORD + "=?";
+        String[] selectionArgs = {username, password};
 
-        if (cursor.moveToFirst()) {
+        Cursor cursor = db.query(
+                TABLE_USERS, columns, selection, selectionArgs, null, null, null);
+
+        if (cursor.getCount() == 1 && cursor.moveToFirst()) {
             @SuppressLint("Range")
             String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
             @SuppressLint("Range")
             String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
-            UserProfile userProfile = getUserProfile(userId);
-            cursor.close();
-            return new User(userId, userProfile, role);
+
+            Object profile = getUserProfile(userId);
+
+            if ("doctor".equals(role) && profile instanceof Doctor) {
+                user = new User(userId, (Doctor) profile, role);
+            } else if (profile instanceof Patient) {
+                user = new User(userId, (Patient) profile, role);
+            } else {
+                if ("doctor".equals(role)) {
+                    user = new User(userId, (Doctor) null, role);
+                } else {
+                    user = new User(userId, (Patient) null, role);
+                }
+            }
         }
+
         cursor.close();
-        return null;
+        return user;
     }
 
     /**
@@ -440,6 +541,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     /**
      * Retrieves a user from the database by their ID.
      * Returns a User object containing the user's ID, profile, and role.
+     * Depending on the user's role, it will create a User object with either a Patient or Doctor object.
      *
      * @param userId The ID of the user to retrieve
      * @return A User object if the user exists, or null if no user with the given ID is found
@@ -460,58 +562,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if (cursor.getCount() == 1 && cursor.moveToFirst()) {
             @SuppressLint("Range")
             String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
-            UserProfile userProfile = getUserProfile(userId);
+
+            Object profile = getUserProfile(userId);
             cursor.close();
-            return new User(userId, userProfile, role);
+
+            if ("doctor".equals(role) && profile instanceof Doctor) {
+                return new User(userId, (Doctor) profile, role);
+            } else if (profile instanceof Patient) {
+                return new User(userId, (Patient) profile, role);
+            } else {
+                if ("doctor".equals(role)) {
+                    return new User(userId, (Doctor) null, role);
+                } else {
+                    return new User(userId, (Patient) null, role);
+                }
+            }
         }
         cursor.close();
-        return null;
-    }
-
-    /**
-     * Inserts a new session record in the database.
-     * This method is used to store key-value pairs associated with a user.
-     *
-     * @param userId The ID of the user this session data belongs to
-     * @param key The key for the session data
-     * @param value The value to store
-     * @return The ID of the newly inserted session record, or -1 if the insertion failed
-     */
-    public long insertOnSession(String userId, String key, String value) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_USER_ID, userId);
-        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_KEY, key);
-        contentValues.put(DatabaseHelper.COLUMN_SHAREDPREF_VALUE, value);
-
-        return db.insert(DatabaseHelper.TABLE_SHAREDPREF, null, contentValues);
-    }
-
-    /**
-     * Retrieves a session record from the database by its ID.
-     * Returns a Session object containing the session's ID, key, and value.
-     *
-     * @param id The ID of the session record to retrieve
-     * @return A Session object if the record exists, or null if no record with the given ID is found
-     */
-    public Session getSession(long id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        Cursor cursor = db.query(DatabaseHelper.TABLE_SHAREDPREF,
-                new String[] {DatabaseHelper.COLUMN_SHAREDPREF_ID, DatabaseHelper.COLUMN_SHAREDPREF_USER_ID,
-                        DatabaseHelper.COLUMN_SHAREDPREF_KEY, DatabaseHelper.COLUMN_SHAREDPREF_VALUE},
-                DatabaseHelper.COLUMN_SHAREDPREF_ID + "=?", new String[] {String.valueOf(id)}, null, null,
-                null);
-
-        if (cursor != null && cursor.moveToFirst()) {
-            @SuppressLint("Range")
-            Session session =
-                    new Session(cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_ID)),
-                            cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_KEY)),
-                            cursor.getString(cursor.getColumnIndex(DatabaseHelper.COLUMN_SHAREDPREF_VALUE)));
-            cursor.close();
-            return session;
-        }
-
         return null;
     }
 
@@ -546,6 +613,44 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * Retrieves a user's credentials (username and password) from the database.
+     *
+     * @param userId The ID of the user whose credentials to retrieve
+     * @return A String array containing the username at index 0 and password at index 1,
+     *         or null if the user is not found
+     */
+    public String[] getUserCredentials(String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String[] columns = {
+                COLUMN_USERNAME,
+                COLUMN_PASSWORD
+        };
+
+        Cursor cursor = db.query(
+                TABLE_USERS, columns, COLUMN_USER_ID + "=?", new String[] {userId}, null, null, null);
+
+        String[] credentials = null;
+
+        if (cursor != null && cursor.moveToFirst()) {
+            credentials = new String[2];
+            @SuppressLint("Range")
+            String username = cursor.getString(cursor.getColumnIndex(COLUMN_USERNAME));
+            @SuppressLint("Range")
+            String password = cursor.getString(cursor.getColumnIndex(COLUMN_PASSWORD));
+
+            credentials[0] = username;
+            credentials[1] = password;
+        }
+
+        if (cursor != null) {
+            cursor.close();
+        }
+
+        return credentials;
+    }
+
+    /**
      * Assigns a patient to a doctor in the database.
      * This method creates a relationship between a doctor and a patient.
      * The assignment will only occur if:
@@ -577,6 +682,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             values.put(COLUMN_PATIENT_ID_FK, patientId);
 
             db.beginTransaction();
+            db.insert(TABLE_DOCTOR_PATIENTS, null, values);
             db.setTransactionSuccessful();
         } catch (Exception e) {
             e.printStackTrace();
@@ -643,8 +749,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
                 @SuppressLint("Range")
                 String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
-                UserProfile userProfile = getUserProfile(userId);
-                patients.add(new User(userId, userProfile, role));
+
+                Object profile = getUserProfile(userId);
+                if (profile instanceof Patient) {
+                    patients.add(new User(userId, (Patient) profile, role));
+                }
             } while (cursor.moveToNext());
         }
 
@@ -678,8 +787,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
                 @SuppressLint("Range")
                 String role = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ROLE));
-                UserProfile userProfile = getUserProfile(userId);
-                doctors.add(new User(userId, userProfile, role));
+
+                Object profile = getUserProfile(userId);
+                if (profile instanceof Doctor) {
+                    doctors.add(new User(userId, (Doctor) profile, role));
+                }
             } while (cursor.moveToNext());
         }
 
@@ -848,9 +960,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         java.util.List<Disease> diseases = new java.util.ArrayList<>();
         java.util.Set<Integer> addedDiseaseIds = new java.util.HashSet<>();
 
-        String query = "SELECT ud.*, d.*, u.username AS doctor_name, ud." + COLUMN_DOCTOR_ID_FK + " AS doctor_id " +
+        String query = "SELECT ud.*, u.username AS doctor_name " +
                 "FROM " + TABLE_USER_DISEASES + " ud " +
-                "INNER JOIN " + TABLE_DISEASES + " d ON ud." + COLUMN_DISEASE_ID_FK + " = d." + COLUMN_DISEASE_ID + " " +
                 "LEFT JOIN " + TABLE_USERS + " u ON ud." + COLUMN_DOCTOR_ID_FK + " = u." + COLUMN_USER_ID + " " +
                 "WHERE ud." + COLUMN_USER_ID_FK_DISEASE + " = ?";
 
@@ -859,7 +970,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if (cursor != null) {
             while (cursor.moveToNext()) {
                 @SuppressLint("Range")
-                int diseaseId = cursor.getInt(cursor.getColumnIndex(COLUMN_DISEASE_ID_FK));
+                int diseaseId = cursor.getInt(cursor.getColumnIndex(COLUMN_USER_DISEASE_ID));
 
                 if (addedDiseaseIds.contains(diseaseId)) {
                     continue;
@@ -872,7 +983,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 @SuppressLint("Range")
                 String doctorName = cursor.getString(cursor.getColumnIndex("doctor_name"));
                 @SuppressLint("Range")
-                String doctorId = cursor.getString(cursor.getColumnIndex("doctor_id"));
+                String doctorId = cursor.getString(cursor.getColumnIndex(COLUMN_DOCTOR_ID_FK));
                 @SuppressLint("Range")
                 String diagnosisDate = cursor.getString(cursor.getColumnIndex("diagnosis_date"));
 
@@ -900,14 +1011,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     /**
      * Saves a notification to the database
-     * @param userId The ID of the user this notification is for
+     *
+     * @param userId  The ID of the user this notification is for
      * @param message The notification message
-     * @param type The type of notification (e.g., "timer_expired", "feedback_submitted")
-     * @return The ID of the newly inserted notification, or -1 if the insertion failed
+     * @param type    The type of notification (e.g., "timer_expired", "feedback_submitted")
      */
-    public long saveNotification(String userId, String message, String type) {
+    public void saveNotification(String userId, String message, String type) {
         SQLiteDatabase db = this.getWritableDatabase();
-        long result = -1;
 
         try {
             ContentValues values = new ContentValues();
@@ -921,15 +1031,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             values.put(COLUMN_NOTIFICATION_TYPE, type);
 
             db.beginTransaction();
-            result = db.insert(TABLE_NOTIFICATIONS, null, values);
+            // Insert the notification into the database
+            long result = db.insert(TABLE_NOTIFICATIONS, null, values);
+            if (result != -1) {
+                android.util.Log.d("DatabaseHelper", "Notification saved successfully for user " + userId);
+            } else {
+                android.util.Log.e("DatabaseHelper", "Failed to save notification for user " + userId);
+            }
             db.setTransactionSuccessful();
         } catch (Exception e) {
+            android.util.Log.e("DatabaseHelper", "Error saving notification", e);
             e.printStackTrace();
         } finally {
             db.endTransaction();
         }
-
-        return result;
     }
 
     /**
@@ -1018,109 +1133,126 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
-     * Searches for a user profile by CNP
+     * Searches for a patient by CNP
      * @param cnp The CNP to search for
-     * @return The user profile with the given CNP, or null if no profile exists
+     * @return The Patient object with the given CNP, or null if no patient exists
      */
-    public UserProfile getUserProfileByCnp(String cnp) {
+    public Patient getPatientByCnp(String cnp) {
         SQLiteDatabase db = this.getReadableDatabase();
-        UserProfile userProfile = null;
+        Patient patient = null;
 
         String[] columns = {
             COLUMN_USER_ID,
-            "cnp",
+            COLUMN_CNP,
             COLUMN_NAME, 
             COLUMN_AGE, 
             COLUMN_HEIGHT, 
             COLUMN_WEIGHT, 
             COLUMN_LAST_MED_REP,
-            "body_fat_percentage",
-            "blood_pressure_systolic",
-            "blood_pressure_diastolic",
-            "resting_heart_rate",
-            "blood_glucose",
-            "cholesterol_total",
-            "cholesterol_hdl",
-            "cholesterol_ldl",
-            "health_score",
-            "body_type",
-            "specialty"
+            COLUMN_BODY_FAT_PERCENTAGE,
+            COLUMN_BLOOD_PRESSURE_SYSTOLIC,
+            COLUMN_BLOOD_PRESSURE_DIASTOLIC,
+            COLUMN_RESTING_HEART_RATE,
+            COLUMN_BLOOD_GLUCOSE,
+            COLUMN_CHOLESTEROL_TOTAL,
+            COLUMN_CHOLESTEROL_HDL,
+            COLUMN_CHOLESTEROL_LDL,
+            COLUMN_HEALTH_SCORE,
+            COLUMN_BODY_TYPE,
+            COLUMN_GENDER,
+            COLUMN_BMI_INTERPRETATION,
+            COLUMN_METABOLIC_INTERPRETATION
         };
 
-        Cursor cursor = db.query(TABLE_PROFILE, columns, "cnp=?", new String[] {cnp},
-                null, null, null, null);
-        try {
+        try (Cursor cursor = db.query(TABLE_PATIENTS, columns, COLUMN_CNP + "=?", new String[]{cnp},
+                null, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                @SuppressLint("Range") String userId = cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID));
                 @SuppressLint("Range") String name = cursor.getString(cursor.getColumnIndex(COLUMN_NAME));
                 @SuppressLint("Range") int age = cursor.getInt(cursor.getColumnIndex(COLUMN_AGE));
                 @SuppressLint("Range") float height = cursor.getFloat(cursor.getColumnIndex(COLUMN_HEIGHT));
                 @SuppressLint("Range") float weight = cursor.getFloat(cursor.getColumnIndex(COLUMN_WEIGHT));
                 @SuppressLint("Range") String lastMedicalReport = cursor.getString(cursor.getColumnIndex(COLUMN_LAST_MED_REP));
 
-                userProfile = new UserProfile(name, age, height, weight, lastMedicalReport);
-                userProfile.setCnp(cnp);
+                patient = new Patient(name, age, height, weight, lastMedicalReport);
+                patient.setCnp(cnp);
 
-                @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex("body_fat_percentage"));
+                @SuppressLint("Range") float bodyFatPercentage = cursor.getFloat(cursor.getColumnIndex(COLUMN_BODY_FAT_PERCENTAGE));
                 if (bodyFatPercentage > 0) {
-                    userProfile.setBodyFatPercentage(bodyFatPercentage);
+                    patient.setBodyFatPercentage(bodyFatPercentage);
                 }
 
-                @SuppressLint("Range") int bloodPressureSystolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_systolic"));
+                @SuppressLint("Range") int bloodPressureSystolic = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE_SYSTOLIC));
                 if (bloodPressureSystolic > 0) {
-                    userProfile.setBloodPressureSystolic(bloodPressureSystolic);
+                    patient.setBloodPressureSystolic(bloodPressureSystolic);
                 }
 
-                @SuppressLint("Range") int bloodPressureDiastolic = cursor.getInt(cursor.getColumnIndex("blood_pressure_diastolic"));
+                @SuppressLint("Range") int bloodPressureDiastolic = cursor.getInt(cursor.getColumnIndex(COLUMN_BLOOD_PRESSURE_DIASTOLIC));
                 if (bloodPressureDiastolic > 0) {
-                    userProfile.setBloodPressureDiastolic(bloodPressureDiastolic);
+                    patient.setBloodPressureDiastolic(bloodPressureDiastolic);
                 }
 
-                @SuppressLint("Range") int restingHeartRate = cursor.getInt(cursor.getColumnIndex("resting_heart_rate"));
+                @SuppressLint("Range") int restingHeartRate = cursor.getInt(cursor.getColumnIndex(COLUMN_RESTING_HEART_RATE));
                 if (restingHeartRate > 0) {
-                    userProfile.setRestingHeartRate(restingHeartRate);
+                    patient.setRestingHeartRate(restingHeartRate);
                 }
 
-                @SuppressLint("Range") float bloodGlucose = cursor.getFloat(cursor.getColumnIndex("blood_glucose"));
+                @SuppressLint("Range") float bloodGlucose = cursor.getFloat(cursor.getColumnIndex(COLUMN_BLOOD_GLUCOSE));
                 if (bloodGlucose > 0) {
-                    userProfile.setBloodGlucose(bloodGlucose);
+                    patient.setBloodGlucose(bloodGlucose);
                 }
 
-                @SuppressLint("Range") float cholesterolTotal = cursor.getFloat(cursor.getColumnIndex("cholesterol_total"));
+                @SuppressLint("Range") float cholesterolTotal = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_TOTAL));
                 if (cholesterolTotal > 0) {
-                    userProfile.setCholesterolTotal(cholesterolTotal);
+                    patient.setCholesterolTotal(cholesterolTotal);
                 }
 
-                @SuppressLint("Range") float cholesterolHDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_hdl"));
+                @SuppressLint("Range") float cholesterolHDL = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_HDL));
                 if (cholesterolHDL > 0) {
-                    userProfile.setCholesterolHDL(cholesterolHDL);
+                    patient.setCholesterolHDL(cholesterolHDL);
                 }
 
-                @SuppressLint("Range") float cholesterolLDL = cursor.getFloat(cursor.getColumnIndex("cholesterol_ldl"));
+                @SuppressLint("Range") float cholesterolLDL = cursor.getFloat(cursor.getColumnIndex(COLUMN_CHOLESTEROL_LDL));
                 if (cholesterolLDL > 0) {
-                    userProfile.setCholesterolLDL(cholesterolLDL);
+                    patient.setCholesterolLDL(cholesterolLDL);
                 }
 
-                @SuppressLint("Range") int healthScore = cursor.getInt(cursor.getColumnIndex("health_score"));
+                @SuppressLint("Range") int healthScore = cursor.getInt(cursor.getColumnIndex(COLUMN_HEALTH_SCORE));
                 if (healthScore > 0) {
-                    userProfile.setHealthScore(healthScore);
+                    patient.setHealthScore(healthScore);
                 }
 
-                @SuppressLint("Range") String bodyType = cursor.getString(cursor.getColumnIndex("body_type"));
+                @SuppressLint("Range") String bodyType = cursor.getString(cursor.getColumnIndex(COLUMN_BODY_TYPE));
                 if (bodyType != null && !bodyType.isEmpty()) {
-                    userProfile.setBodyType(bodyType);
+                    patient.setBodyType(bodyType);
                 }
 
-                @SuppressLint("Range") String specialty = cursor.getString(cursor.getColumnIndex("specialty"));
-                if (specialty != null && !specialty.isEmpty()) {
-                    userProfile.setSpecialty(specialty);
+                @SuppressLint("Range") String gender = cursor.getString(cursor.getColumnIndex(COLUMN_GENDER));
+                if (gender != null && !gender.isEmpty()) {
+                    patient.setGender(gender);
                 }
-            }
-        } finally {
-            if (cursor != null) {
-                cursor.close();
+
+                @SuppressLint("Range") String bmiInterpretation = cursor.getString(cursor.getColumnIndex(COLUMN_BMI_INTERPRETATION));
+                if (bmiInterpretation != null && !bmiInterpretation.isEmpty()) {
+                    patient.setBmiInterpretation(bmiInterpretation);
+                }
+
+                @SuppressLint("Range") String metabolicInterpretation = cursor.getString(cursor.getColumnIndex(COLUMN_METABOLIC_INTERPRETATION));
+                if (metabolicInterpretation != null && !metabolicInterpretation.isEmpty()) {
+                    patient.setMetabolicInterpretation(metabolicInterpretation);
+                }
             }
         }
-        return userProfile;
+        return patient;
+    }
+
+    /**
+     * For backward compatibility
+     * @param cnp The CNP to search for
+     * @return The Patient object with the given CNP, or null if no profile exists
+     * @deprecated Use getPatientByCnp instead
+     */
+    @Deprecated
+    public Object getUserProfileByCnp(String cnp) {
+        return getPatientByCnp(cnp);
     }
 }

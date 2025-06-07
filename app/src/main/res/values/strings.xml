@@ -45,4 +45,10 @@
     <string name="next_report_time">Next report available in: %1$s</string>
     <string name="BMIQ">Mental State</string>
     <string name="patients">Patients</string>
+    <string name="gender">Gender</string>
+    <string-array name="gender_options">
+        <item>male</item>
+        <item>female</item>
+        <item>don\'t want to specify</item>
+    </string-array>
 </resources>

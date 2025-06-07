@@ -8,7 +8,7 @@ import android.util.Log;
  * This class can be used from the main activity or any other activity to add a doctor user.
  */
 public class UserTest {
-    private static final String TAG = "AddDoctorTest";
+    private static final String TAG = "UserTest";
 
     /**
      * Adds doctor users to the database for testing purposes.
@@ -19,8 +19,10 @@ public class UserTest {
         try {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
 
-            createAllPatientsIfNeeded(context);
+            // Add test patients first
+            addPatientsForTesting(context);
 
+            // Then add specialized doctors
             addSpecializedDoctors(context);
 
             dbHelper.assignPatientToDoctor("14", "19");
@@ -34,8 +36,7 @@ public class UserTest {
                     medicDoctorId = String.valueOf(newMedicDoctorId);
                     Log.d(TAG, "Medic doctor added successfully with ID: " + medicDoctorId);
 
-                    UserProfile medicDoctorProfile = new UserProfile("Medic", 40, 175, 70, "General Practitioner");
-                    medicDoctorProfile.setSpecialty("General Practitioner");
+                    Doctor medicDoctorProfile = new Doctor("Medic", "General Practitioner");
                     dbHelper.insertOrUpdateProfile(medicDoctorId, medicDoctorProfile);
                     Log.d(TAG, "Medic doctor profile added successfully");
                 } else {
@@ -45,8 +46,7 @@ public class UserTest {
                 medicDoctorId = medicDoctor.getUserId();
                 Log.d(TAG, "Medic doctor already exists with ID: " + medicDoctorId);
 
-                UserProfile medicDoctorProfile = new UserProfile("Medic", 40, 175, 70, "General Practitioner");
-                medicDoctorProfile.setSpecialty("General Practitioner");
+                Doctor medicDoctorProfile = new Doctor("Medic", "General Practitioner");
                 dbHelper.insertOrUpdateProfile(medicDoctorId, medicDoctorProfile);
                 Log.d(TAG, "Medic doctor profile updated to ensure name is 'Medic'");
             }
@@ -72,29 +72,6 @@ public class UserTest {
     }
 
     /**
-     * Creates all patients if they don't exist yet.
-     * @param context The context to use for database access
-     */
-    private static void createAllPatientsIfNeeded(Context context) {
-        try {
-            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
-
-            User existingRafael = dbHelper.checkUser("rafael", "password");
-            long rafaelId = -1;
-            if (existingRafael != null) {
-                Log.d(TAG, "Rafael already exists");
-            } else {
-                rafaelId = dbHelper.addTestUser("rafael", "password", "patient");
-                Log.d(TAG, "Rafael added with ID: " + rafaelId);
-                // Note: We intentionally do not create a profile for rafael as per requirements
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating patients: " + e.getMessage());
-        }
-    }
-
-    /**
      * Adds the three specialized doctors: cardio, pneumo, and nutri
      * @param context The context to use for database access
      */
@@ -111,8 +88,7 @@ public class UserTest {
                     cardioId = String.valueOf(newCardioId);
                     Log.d(TAG, "Cardio doctor added successfully with ID: " + cardioId);
 
-                    UserProfile cardioProfile = new UserProfile("Dr. Cardio", 45, 175, 70, "Cardiologist");
-                    cardioProfile.setSpecialty("Cardiologist");
+                    Doctor cardioProfile = new Doctor("Dr. Cardio", "Cardiologist");
                     dbHelper.insertOrUpdateProfile(cardioId, cardioProfile);
                     Log.d(TAG, "Cardio doctor profile added successfully");
                 } else {
@@ -122,8 +98,7 @@ public class UserTest {
                 cardioId = cardioDoctor.getUserId();
                 Log.d(TAG, "Cardio doctor already exists with ID: " + cardioId);
 
-                UserProfile cardioProfile = new UserProfile("Dr. Cardio", 45, 175, 70, "Cardiologist");
-                cardioProfile.setSpecialty("Cardiologist");
+                Doctor cardioProfile = new Doctor("Dr. Cardio", "Cardiologist");
                 dbHelper.insertOrUpdateProfile(cardioId, cardioProfile);
                 Log.d(TAG, "Cardio doctor profile updated");
             }
@@ -137,8 +112,7 @@ public class UserTest {
                     pneumoId = String.valueOf(newPneumoId);
                     Log.d(TAG, "Pneumo doctor added successfully with ID: " + pneumoId);
 
-                    UserProfile pneumoProfile = new UserProfile("Dr. Pneumo", 40, 180, 75, "Pneumologist");
-                    pneumoProfile.setSpecialty("Pneumologist");
+                    Doctor pneumoProfile = new Doctor("Dr. Pneumo", "Pneumologist");
                     dbHelper.insertOrUpdateProfile(pneumoId, pneumoProfile);
                     Log.d(TAG, "Pneumo doctor profile added successfully");
                 } else {
@@ -148,8 +122,7 @@ public class UserTest {
                 pneumoId = pneumoDoctor.getUserId();
                 Log.d(TAG, "Pneumo doctor already exists with ID: " + pneumoId);
 
-                UserProfile pneumoProfile = new UserProfile("Dr. Pneumo", 40, 180, 75, "Pneumologist");
-                pneumoProfile.setSpecialty("Pneumologist");
+                Doctor pneumoProfile = new Doctor("Dr. Pneumo", "Pneumologist");
                 dbHelper.insertOrUpdateProfile(pneumoId, pneumoProfile);
                 Log.d(TAG, "Pneumo doctor profile updated");
             }
@@ -164,8 +137,7 @@ public class UserTest {
                     nutriId = String.valueOf(newNutriId);
                     Log.d(TAG, "Nutri doctor added successfully with ID: " + nutriId);
 
-                    UserProfile nutriProfile = new UserProfile("Dr. Nutri", 35, 165, 60, "Nutritionist");
-                    nutriProfile.setSpecialty("Nutritionist");
+                    Doctor nutriProfile = new Doctor("Dr. Nutri", "Nutritionist");
                     dbHelper.insertOrUpdateProfile(nutriId, nutriProfile);
                     Log.d(TAG, "Nutri doctor profile added successfully");
                 } else {
@@ -175,8 +147,7 @@ public class UserTest {
                 nutriId = nutriDoctor.getUserId();
                 Log.d(TAG, "Nutri doctor already exists with ID: " + nutriId);
 
-                UserProfile nutriProfile = new UserProfile("Dr. Nutri", 35, 165, 60, "Nutritionist");
-                nutriProfile.setSpecialty("Nutritionist");
+                Doctor nutriProfile = new Doctor("Dr. Nutri", "Nutritionist");
                 dbHelper.insertOrUpdateProfile(nutriId, nutriProfile);
                 Log.d(TAG, "Nutri doctor profile updated");
             }
@@ -185,6 +156,99 @@ public class UserTest {
 
         } catch (Exception e) {
             Log.e(TAG, "Error adding specialized doctors: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Adds test patients to the database for testing purposes.
+     *
+     * @param context The context to use for database access
+     */
+    public static void addPatientsForTesting(Context context) {
+        try {
+            DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
+
+            // Add patient1 with cardiac issues
+            User patient1 = dbHelper.checkUser("patient1", "password");
+            String patient1Id = "";
+
+            if (patient1 == null) {
+                long newPatient1Id = dbHelper.addTestUser("patient1", "password", "patient");
+                if (newPatient1Id != -1) {
+                    patient1Id = String.valueOf(newPatient1Id);
+                    Log.d(TAG, "Patient 1 added successfully with ID: " + patient1Id);
+
+                    Patient patient1Profile = new Patient("John Doe", 55, 175, 85, "Hypertension, High cholesterol");
+                    patient1Profile.setCnp("1234567890123");
+                    patient1Profile.setBloodPressureSystolic(145);
+                    patient1Profile.setBloodPressureDiastolic(95);
+                    patient1Profile.setRestingHeartRate(78);
+                    patient1Profile.setCholesterolTotal(240);
+                    patient1Profile.setCholesterolHDL(45);
+                    patient1Profile.setCholesterolLDL(160);
+                    patient1Profile.setHealthScore(65);
+                    patient1Profile.setGender("male");
+                    dbHelper.insertOrUpdateProfile(patient1Id, patient1Profile);
+                    Log.d(TAG, "Patient 1 profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add patient 1");
+                }
+            } else {
+                patient1Id = patient1.getUserId();
+                Log.d(TAG, "Patient 1 already exists with ID: " + patient1Id);
+
+                Patient patient1Profile = new Patient("John Doe", 55, 175, 85, "Hypertension, High cholesterol");
+                patient1Profile.setCnp("1234567890123");
+                patient1Profile.setBloodPressureSystolic(145);
+                patient1Profile.setBloodPressureDiastolic(95);
+                patient1Profile.setRestingHeartRate(78);
+                patient1Profile.setCholesterolTotal(240);
+                patient1Profile.setCholesterolHDL(45);
+                patient1Profile.setCholesterolLDL(160);
+                patient1Profile.setHealthScore(65);
+                patient1Profile.setGender("male");
+                dbHelper.insertOrUpdateProfile(patient1Id, patient1Profile);
+                Log.d(TAG, "Patient 1 profile updated");
+            }
+
+            // Add patient2 with respiratory issues
+            User patient2 = dbHelper.checkUser("patient2", "password");
+            String patient2Id = "";
+
+            if (patient2 == null) {
+                long newPatient2Id = dbHelper.addTestUser("patient2", "password", "patient");
+                if (newPatient2Id != -1) {
+                    patient2Id = String.valueOf(newPatient2Id);
+                    Log.d(TAG, "Patient 2 added successfully with ID: " + patient2Id);
+
+                    Patient patient2Profile = new Patient("Jane Smith", 42, 165, 60, "Asthma, Seasonal allergies");
+                    patient2Profile.setCnp("2345678901234");
+                    patient2Profile.setBloodPressureSystolic(120);
+                    patient2Profile.setBloodPressureDiastolic(80);
+                    patient2Profile.setRestingHeartRate(68);
+                    patient2Profile.setHealthScore(75);
+                    patient2Profile.setGender("female");
+                    dbHelper.insertOrUpdateProfile(patient2Id, patient2Profile);
+                    Log.d(TAG, "Patient 2 profile added successfully");
+                } else {
+                    Log.e(TAG, "Failed to add patient 2");
+                }
+            } else {
+                patient2Id = patient2.getUserId();
+                Log.d(TAG, "Patient 2 already exists with ID: " + patient2Id);
+
+                Patient patient2Profile = new Patient("Jane Smith", 42, 165, 60, "Asthma, Seasonal allergies");
+                patient2Profile.setCnp("2345678901234");
+                patient2Profile.setBloodPressureSystolic(120);
+                patient2Profile.setBloodPressureDiastolic(80);
+                patient2Profile.setRestingHeartRate(68);
+                patient2Profile.setHealthScore(75);
+                patient2Profile.setGender("female");
+                dbHelper.insertOrUpdateProfile(patient2Id, patient2Profile);
+                Log.d(TAG, "Patient 2 profile updated");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error adding patients: " + e.getMessage());
         }
     }
 

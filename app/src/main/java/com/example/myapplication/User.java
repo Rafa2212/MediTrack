@@ -2,12 +2,21 @@ package com.example.myapplication;
 
 public class User {
     private final String userId;
-    private final UserProfile userProfile;
+    private final Patient patient;
+    private final Doctor doctor;
     private final String role;
 
-    public User(String userId, UserProfile userProfile, String role) {
+    public User(String userId, Patient patient, String role) {
         this.userId = userId;
-        this.userProfile = userProfile;
+        this.patient = patient;
+        this.doctor = null;
+        this.role = role;
+    }
+
+    public User(String userId, Doctor doctor, String role) {
+        this.userId = userId;
+        this.patient = null;
+        this.doctor = doctor;
         this.role = role;
     }
 
@@ -15,11 +24,24 @@ public class User {
         return userId;
     }
 
-    public UserProfile getUserProfile() {
-        return userProfile;
+    public Patient getPatient() {
+        return patient;
+    }
+
+    public Doctor getDoctor() {
+        return doctor;
     }
 
     public String getRole() {
         return role;
+    }
+
+    // For backward compatibility
+    public Object getUserProfile() {
+        if ("doctor".equals(role)) {
+            return doctor;
+        } else {
+            return patient;
+        }
     }
 }
