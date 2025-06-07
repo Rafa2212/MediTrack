@@ -119,24 +119,28 @@ public class FitbitAPI {
 
     /**
      * Updates a patient's profile with health metrics retrieved from the Fitbit API.
+     * This is a backward compatibility method that calls updateUserProfile(Patient, Runnable)
+     * with a null callback.
+     * 
+     * @param patient The Patient object to update with the retrieved health metrics
+     */
+    public void updateUserProfile(Patient patient) {
+        updateUserProfile(patient, null);
+    }
+
+    /**
+     * Updates a patient's profile with health metrics retrieved from the Fitbit API.
      * This method fetches data for the last 7 days and calculates average values for various
      * health metrics including steps, sedentary minutes, breathing rate, heart rate variability,
      * sleep metrics, and active zone minutes.
-     * 
      * The method makes multiple asynchronous API calls and uses a CountDownLatch to coordinate
      * the responses. Once all data is collected, it calculates averages and updates the patient profile.
-     * 
      * This method will only update profiles for user Rafael with password Rafael015 (user IDs 23 or 24).
      * 
      * @param patient The Patient object to update with the retrieved health metrics
-     * @param userId The ID of the user whose profile is being updated
+     * @param callback The callback to be invoked when the update is complete
      */
-    public void updateUserProfile(Patient patient, String userId) {
-        // Check if the user is Rafael (for the connection to FitBit)
-//        if (!(userId.equals("23") || userId.equals("24"))) {
-//            // If not Rafael with the correct credentials, return without updating
-//            return;
-//        }
+    public void updateUserProfile(Patient patient, Runnable callback) {
         List<String> dates = new ArrayList<>();
         Calendar calendar = Calendar.getInstance();
         for (int i = 0; i < 7; i++) {
@@ -318,8 +322,17 @@ public class FitbitAPI {
                         averageMinutesToFallAsleep, averageRestlessCount, averageRestlessDuration, averageTimeInBed,
                         averageDeepSleep, averageLightSleep, averageRemSleep, averageWakeSleep, averageActiveZoneMinutes,
                         patient.getVo2Max());
+
+                // Execute the callback to signal that processing is complete
+                if (callback != null) {
+                    callback.run();
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                // Execute the callback even if there was an error
+                if (callback != null) {
+                    callback.run();
+                }
             }
         }).start();
     }

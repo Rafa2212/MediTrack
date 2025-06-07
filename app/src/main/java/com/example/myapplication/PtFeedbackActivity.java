@@ -211,20 +211,43 @@ public class PtFeedbackActivity extends BaseActivity {
                 boolean isOlder = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
 
                 if (isOlder) {
+                    // Create a flag to track whether Fitbit data has been processed
+                    final boolean[] fitbitDataProcessed = {false};
 
                     FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
-                    fb.updateUserProfile(userProfile, curr_user);
+                    // Use the callback to ensure Fitbit data is processed before generating the report
+                    fb.updateUserProfile(userProfile, () -> {
+                        Log.d("WeeklyReportActivity", "Fitbit data processing completed");
+                        fitbitDataProcessed[0] = true;
+                    });
 
                     ExecutorService executor = Executors.newSingleThreadExecutor();
 
                     Handler handler = new Handler(Looper.getMainLooper());
 
-                    // Create OpenAiService with increased timeout settings to prevent SocketTimeoutException
                     String token = TokenData.OPEN_AI_SERVICE_KEY.getToken();
                     OpenAiService service = new OpenAiService(token, Duration.ofSeconds(120));
 
                     executor.execute(() -> {
                         try {
+                            // Wait for Fitbit data to be processed with a timeout
+                            int maxWaitTimeMs = 30000; // 30 seconds timeout
+                            int waitedMs = 0;
+                            while (!fitbitDataProcessed[0] && waitedMs < maxWaitTimeMs) {
+                                try {
+                                    Thread.sleep(100); // Wait 100ms before checking again
+                                    waitedMs += 100;
+                                } catch (InterruptedException e) {
+                                    Log.e("WeeklyReportActivity", "Interrupted while waiting for Fitbit data", e);
+                                    break;
+                                }
+                            }
+
+                            if (!fitbitDataProcessed[0]) {
+                                Log.w("WeeklyReportActivity", "Timed out waiting for Fitbit data, proceeding with report generation anyway");
+                            }
+
+                            // Now that Fitbit data is processed, generate the report
                             String prepPrompt = "Consider that you will work at a medical report PDF document so please replace the data in the parentheses () with the values and replace the square brackets [] with your actual analysis based on the patient data provided in parentheses within each section. You should not have in the PDF [ ] or ( ) and neither text between them, all of them should be replaced with values or with ' ' if there is no value for that. For the { }, align the values before that like it is mentioned between { } and then remove the { } and the text in between. Use the data to provide meaningful insights and recommendations in a minimalist and useful way.";
 
                             String lstRep = userProfile.getLastMedicalReport();
@@ -434,17 +457,17 @@ public class PtFeedbackActivity extends BaseActivity {
         String diseasesString = diseasesStates != null ? String.join(", ", diseasesStates) : "";
 
         @SuppressLint("DefaultLocale") String prompt = String.format(
+                "**" + userProfile.getName() + "**\n\n" +
                 "I. Introduction {subtitle aligned left}\n\n" +
                 "This weekly report provides a comprehensive overview of the patient state of the overall health over the last week. " +
                 "The report aims to ensure continuous monitoring of the doctors over the patient with chronic diseases and improvement in healthcare service delivery at MediTrack.\n\n" +
-                "**" + userProfile.getName() + "**\n\n\n\n" +
                 "II. Summary of the Feedback {subtitle aligned left}\n\n" +
                 "A. Patient Log {subsubtitle aligned left}\n\n" +
                 "[Analyze the patient response to feedback questions about physical, mental state and if there are any diseases to them] (Patient feedback - General health: %s, BMI self-assessment: %s, Current conditions: %s)\n\n\n\n" +
                 "B. BMI and Metabollic Balance {subsubtitle aligned left}\n\n" +
                 "[Analyze the patient feedback in concordance with the BMI and Metabollic Balance data you know about the patient and give some insights and find patterns for the patient to optimize] (Height: %.2f cm, Weight: %.2f kg, BMI: %.2f, Body Fat: %.1f%%, Blood Pressure: %d/%d mmHg, Blood Glucose: %.1f mg/dL, Cholesterol - Total: %.1f mg/dL, HDL: %.1f mg/dL, LDL: %.1f mg/dL, Health Score: %d/100)\n\n\n\n" +
                 "III. Observations and Trends {subtitle aligned left}\n\n" +
-                "[Fill the tables with real data comparing the previous medical reports and give reference to them and mention any uptrends / downtrends of the patient, find his challenges and offer some recommadations specific to his needs] (Heart rate variability - Daily RMSSD: %.2f ms, Deep RMSSD: %.2f ms, Cardio fitness score (VO2 max): %s); This is the last report: %s.\n\n\n\n" +
+                "[Fill the tables with real data comparing the previous medical reports and give reference to them and mention any uptrends / downtrends of the patient, find his challenges and offer some recommadations specific to his needs] (Activity data - Average Steps: %d steps, Average Time in Bed: %d minutes, Average Active Minutes: %d minutes); This is the last report: %s.\n\n\n\n" +
                 "IV. Conclusion {subtitle aligned left}\n\n" +
                 "A. Summary {subsubtitle aligned left}\n\n" +
                 "Throughout the week, [give some insights and summaries on the progress of the patient].\n\n" +
@@ -472,9 +495,9 @@ public class PtFeedbackActivity extends BaseActivity {
                 userProfile.getCholesterolLDL(),
                 userProfile.getHealthScore(),
 
-                userProfile.getAverageDailyRmssd(),
-                userProfile.getAverageDeepRmssd(),
-                userProfile.getVo2Max(),
+                userProfile.getAverageSteps(),
+                userProfile.getTimeInBed(),
+                userProfile.getAverageActiveZoneMinutes(),
                 lastReport
         );
 
