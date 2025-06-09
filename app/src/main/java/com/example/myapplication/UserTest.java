@@ -19,10 +19,8 @@ public class UserTest {
         try {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
 
-            // Add test patients first
             addPatientsForTesting(context);
 
-            // Then add specialized doctors
             addSpecializedDoctors(context);
 
             dbHelper.assignPatientToDoctor("14", "19");
@@ -168,7 +166,6 @@ public class UserTest {
         try {
             DatabaseHelper dbHelper = DatabaseHelper.getInstance(context);
 
-            // Add patient1 with cardiac issues
             User patient1 = dbHelper.checkUser("patient1", "password");
             String patient1Id = "";
 
@@ -186,8 +183,10 @@ public class UserTest {
                     patient1Profile.setCholesterolTotal(240);
                     patient1Profile.setCholesterolHDL(45);
                     patient1Profile.setCholesterolLDL(160);
-                    patient1Profile.setHealthScore(65);
                     patient1Profile.setGender("male");
+                    // Calculate health score using the HealthScoreCalculator
+                    int healthScore = HealthScoreCalculator.calculateHealthScore(patient1Profile);
+                    patient1Profile.setHealthScore(healthScore);
                     dbHelper.insertOrUpdateProfile(patient1Id, patient1Profile);
                     Log.d(TAG, "Patient 1 profile added successfully");
                 } else {
@@ -205,13 +204,14 @@ public class UserTest {
                 patient1Profile.setCholesterolTotal(240);
                 patient1Profile.setCholesterolHDL(45);
                 patient1Profile.setCholesterolLDL(160);
-                patient1Profile.setHealthScore(65);
                 patient1Profile.setGender("male");
+                // Calculate health score using the HealthScoreCalculator
+                int healthScore = HealthScoreCalculator.calculateHealthScore(patient1Profile);
+                patient1Profile.setHealthScore(healthScore);
                 dbHelper.insertOrUpdateProfile(patient1Id, patient1Profile);
                 Log.d(TAG, "Patient 1 profile updated");
             }
 
-            // Add patient2 with respiratory issues
             User patient2 = dbHelper.checkUser("patient2", "password");
             String patient2Id = "";
 
@@ -226,8 +226,10 @@ public class UserTest {
                     patient2Profile.setBloodPressureSystolic(120);
                     patient2Profile.setBloodPressureDiastolic(80);
                     patient2Profile.setRestingHeartRate(68);
-                    patient2Profile.setHealthScore(75);
                     patient2Profile.setGender("female");
+                    // Calculate health score using the HealthScoreCalculator
+                    int healthScore = HealthScoreCalculator.calculateHealthScore(patient2Profile);
+                    patient2Profile.setHealthScore(healthScore);
                     dbHelper.insertOrUpdateProfile(patient2Id, patient2Profile);
                     Log.d(TAG, "Patient 2 profile added successfully");
                 } else {
@@ -242,8 +244,10 @@ public class UserTest {
                 patient2Profile.setBloodPressureSystolic(120);
                 patient2Profile.setBloodPressureDiastolic(80);
                 patient2Profile.setRestingHeartRate(68);
-                patient2Profile.setHealthScore(75);
                 patient2Profile.setGender("female");
+                // Calculate health score using the HealthScoreCalculator
+                int healthScore = HealthScoreCalculator.calculateHealthScore(patient2Profile);
+                patient2Profile.setHealthScore(healthScore);
                 dbHelper.insertOrUpdateProfile(patient2Id, patient2Profile);
                 Log.d(TAG, "Patient 2 profile updated");
             }

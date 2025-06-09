@@ -664,7 +664,6 @@ public class DrProfileActivity extends BaseActivity {
                         metabolicPrompt.append("\n2. Potential metabolic risks or concerns");
                         metabolicPrompt.append("\n3. Specific recommendations for improving metabolic health");
                         metabolicPrompt.append("\n4. Lifestyle changes that would benefit this individual");
-                        metabolicPrompt.append("\n5. A health score out of 100 that represents how well this patient compares to the average patient of similar age, height, and weight. Format this as 'HEALTH_SCORE: X' where X is a number between 0 and 100. IMPORTANT: Do not penalize the health score for missing cholesterol values or any other values that are not provided or they are equal with 0.0. Only consider values that are explicitly provided (values > 0) when calculating the health score.");
 
                         ChatCompletionRequest metabolicRequest = ChatCompletionRequest.builder()
                                 .model("gpt-3.5-turbo")
@@ -679,35 +678,19 @@ public class DrProfileActivity extends BaseActivity {
                                 .replace('#', ' ');
                         userProfile.setMetabolicInterpretation(metabolicResponse);
 
-                        String[] lines = metabolicResponse.split("\n");
-                        boolean foundHealthScore = false;
-                        for (String line : lines) {
-                            if (line.contains("HEALTH_SCORE")) {
-                                try {
-                                    String scoreStr = line.substring(line.indexOf(":") + 1).trim();
-                                    scoreStr = scoreStr.replaceAll("[^0-9]", "");
-                                    int newHealthScore = Integer.parseInt(scoreStr);
-                                    newHealthScore = Math.max(0, Math.min(100, newHealthScore));
+                        // Calculate health score using the HealthScoreCalculator
+                        int calculatedHealthScore = HealthScoreCalculator.calculateHealthScore(userProfile);
 
-                                    if (newHealthScore > 0) {
-                                        Log.d("ProfileSetupActivity", "Changing health score from " +
-                                              userProfile.getHealthScore() + " to " + newHealthScore);
-                                        userProfile.setHealthScore(newHealthScore);
-                                        foundHealthScore = true;
-                                    } else {
-                                        Log.d("ProfileSetupActivity", "Invalid health score found: " + newHealthScore + 
-                                              ". Keeping existing health score: " + userProfile.getHealthScore());
-                                    }
-                                    break;
-                                } catch (Exception e) {
-                                    Log.e("ProfileSetupActivity", "Error parsing health score: " + e.getMessage());
-                                }
-                            }
-                        }
-
-                        if (!foundHealthScore) {
-                            Log.d("ProfileSetupActivity", "No valid health score found in response. " + 
-                                  "Keeping existing health score: " + userProfile.getHealthScore());
+                        // Only update if we have a valid score
+                        if (calculatedHealthScore > 0) {
+                            Log.d("ProfileSetupActivity", "Changing health score from " +
+                                  userProfile.getHealthScore() + " to " + calculatedHealthScore + 
+                                  " (calculated by HealthScoreCalculator)");
+                            userProfile.setHealthScore(calculatedHealthScore);
+                        } else {
+                            Log.d("ProfileSetupActivity", "HealthScoreCalculator returned invalid score: " + 
+                                  calculatedHealthScore + ". Keeping existing health score: " + 
+                                  userProfile.getHealthScore());
                         }
 
                         dbHelper.insertOrUpdateProfile(finalUserId, userProfile);

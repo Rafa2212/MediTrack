@@ -27,56 +27,16 @@ import com.example.myapplication.NotificationUtils;
 public class PtDashboardActivity extends BaseActivity {
 
     /**
-     * Checks if a patient can submit a weekly report
-     * @param userId The user ID
-     * @param userProfile The user's profile
-     * @return true if the patient can submit a weekly report, false otherwise
-     * @deprecated Use {@link NotificationUtils} instead.
-     */
-    @Deprecated
-    private boolean isWeeklyFeedbackAvailable(String userId, Patient userProfile) {
-        DatabaseHelper dbHelper = DatabaseHelper.getInstance(this);
-        MedicalReport latestReport = dbHelper.getLatestMedicalReportForPatient(userId);
-
-        if (latestReport != null && latestReport.getReportDate() != null && !latestReport.getReportDate().isEmpty()) {
-            try {
-                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-                java.time.LocalDateTime reportDate = java.time.LocalDateTime.parse(latestReport.getReportDate(), formatter);
-                java.time.LocalDateTime oneWeekAgo = java.time.LocalDateTime.now().minusWeeks(1);
-
-                if (reportDate.isAfter(oneWeekAgo)) {
-                    return false;
-                }
-            } catch (Exception e) {
-                Log.e("DashboardActivity", "Error parsing report date", e);
-            }
-        }
-
-        String dateStr = userProfile.getLastMedicalReport();
-        if (dateStr == null || dateStr.isEmpty()) {
-            return true;
-        }
-
-        try {
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-            java.time.LocalDateTime date = java.time.LocalDateTime.parse(dateStr, formatter);
-            java.time.LocalDateTime oneWeekAgo = java.time.LocalDateTime.now().minusWeeks(1);
-            return date.isBefore(oneWeekAgo);
-        } catch (Exception e) {
-            Log.e("DashboardActivity", "Error parsing lastMedicalReport date", e);
-            return true;
-        }
-    }
-
-    /**
      * Checks if the user is eligible for a weekly report notification and displays it if needed.
      * This method retrieves the user ID from shared preferences and uses NotificationUtils
      * to check if the user can submit a weekly report and show a notification if eligible.
-     * The notification is shown as a popup every time the patient logs in if feedback is not registered for the week.
+     * The notification is shown as a popup only when the patient first logs in (not when switching activities)
+     * if feedback is not registered for the week.
      */
     public void checkForNotifications() {
         SharedPreferences preferences = getSharedPreferences("PREFERENCE", MODE_PRIVATE);
         String userId = preferences.getString("userId", "");
+        boolean justLoggedIn = preferences.getBoolean("just_logged_in", false);
 
         if (userId.isEmpty()) {
             return;
@@ -89,20 +49,20 @@ public class PtDashboardActivity extends BaseActivity {
             return;
         }
 
-        // Check if the patient can submit a weekly report
         boolean canSubmitReport = NotificationUtils.isWeeklyFeedbackAvailable(this, userId, user.getPatient());
 
-        if (canSubmitReport) {
-            // Save notification to database if needed
+        if (canSubmitReport && justLoggedIn) {
             NotificationUtils.checkAndSendNotificationForPatient(this, userId);
 
-            // Show popup notification
             String message = "Your weekly report is now available to submit. Please log your feedback.";
             PopupNotificationHelper popupNotificationHelper = new PopupNotificationHelper(this);
             popupNotificationHelper.showPatientNotification(message, this);
+
+            SharedPreferences.Editor editor = preferences.edit();
+            editor.putBoolean("just_logged_in", false);
+            editor.apply();
         }
 
-        // Also schedule the next notification based on the last report date
         String lastReportDate = user.getPatient().getLastMedicalReport();
         if (lastReportDate != null && !lastReportDate.isEmpty()) {
             NotificationUtils.scheduleNextFeedbackNotification(this, userId, lastReportDate);
@@ -142,11 +102,9 @@ public class PtDashboardActivity extends BaseActivity {
         ArrayList<ProfileWidget> profileWidgetsList = new ArrayList<>();
 
         try (DatabaseHelper dbHelper = new DatabaseHelper(this)) {
-            // Get the user's profile from the database
             User user = dbHelper.getUser(userId);
             Patient userProfile = (user != null) ? user.getPatient() : null;
 
-            // Get BMI interpretation from UserProfile
             String bInterpretation;
             if (userProfile != null && userProfile.getBmiInterpretation() != null && !userProfile.getBmiInterpretation().isEmpty()) {
                 bInterpretation = userProfile.getBmiInterpretation();
@@ -154,7 +112,6 @@ public class PtDashboardActivity extends BaseActivity {
                 bInterpretation = "No BMI interpretation available yet. Please update your profile to generate one.";
             }
 
-            // Get Metabolic Balance interpretation from UserProfile
             String metabolicInterpretation;
             if (userProfile != null && userProfile.getMetabolicInterpretation() != null && !userProfile.getMetabolicInterpretation().isEmpty()) {
                 metabolicInterpretation = userProfile.getMetabolicInterpretation();
@@ -178,7 +135,6 @@ public class PtDashboardActivity extends BaseActivity {
                     metabolicInterpretation
             ));
 
-            // Get diseases with interpretations directly from the database
             SQLiteDatabase db = dbHelper.getReadableDatabase();
             String query = "SELECT " + 
                     DatabaseHelper.COLUMN_ICD10 + ", " + 
@@ -211,7 +167,6 @@ public class PtDashboardActivity extends BaseActivity {
                         interpretation = "No detailed information available for this disease.";
                     }
 
-                    // Check if this disease is already in the list
                     boolean alreadyExists = false;
                     for (Disease existingDisease : diseasesList) {
                         if (existingDisease.getICD10().equals(icd10)) {

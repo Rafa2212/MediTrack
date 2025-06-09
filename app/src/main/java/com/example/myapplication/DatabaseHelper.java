@@ -15,7 +15,7 @@ import android.database.sqlite.SQLiteOpenHelper;
  */
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "meditrack.db";
-    private static final int DATABASE_VERSION = 66;
+    private static final int DATABASE_VERSION = 67;
     private static DatabaseHelper instance;
 
     public static final String TABLE_USERS = "users";

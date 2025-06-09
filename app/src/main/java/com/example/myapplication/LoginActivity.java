@@ -171,6 +171,7 @@ public class LoginActivity extends AppCompatActivity {
         editor.clear().apply();
         editor.putString("userId", userId);
         editor.putString("last_username", username);
+        editor.putBoolean("just_logged_in", true);
         editor.apply();
 
         // Query the user_diseases table directly to get the diseases for this user

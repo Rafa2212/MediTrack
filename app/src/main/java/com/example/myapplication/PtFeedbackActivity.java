@@ -197,7 +197,7 @@ public class PtFeedbackActivity extends BaseActivity {
                 dialog.findViewById(R.id.progress);
                 TextView textView = dialog.findViewById(R.id.text);
 
-                textView.setText("Logging feedback...");
+                textView.setText("Connecting to FitBit...");
 
                 dialog.setCancelable(false);
 

@@ -103,7 +103,7 @@ public class DrQuizActivity extends AppCompatActivity {
             saveBodyType(bodyType);
 
             Snackbar.make(findViewById(android.R.id.content),
-                    "Your body type is: " + bodyType, Snackbar.LENGTH_LONG).show();
+                    "Your patient's body type is: " + bodyType, Snackbar.LENGTH_LONG).show();
 
             findViewById(android.R.id.content).postDelayed(() -> {
                 Intent intent = new Intent();
