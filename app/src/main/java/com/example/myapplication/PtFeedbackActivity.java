@@ -112,7 +112,6 @@ public class PtFeedbackActivity extends BaseActivity {
                     buttonViewLastReport.setVisibility(View.VISIBLE);
                     buttonViewLastReport.setOnClickListener(viewReportBtn -> {
                         try {
-                            // Log the report path for debugging
                             Log.d("WeeklyReportActivity", "Report path: " + latestReport.getReportPath());
                             Log.d("WeeklyReportActivity", "File exists at path: " + file.getAbsolutePath());
 
@@ -211,11 +210,9 @@ public class PtFeedbackActivity extends BaseActivity {
                 boolean isOlder = isDateOlderThanAWeek(userProfile.getLastMedicalReport());
 
                 if (isOlder) {
-                    // Create a flag to track whether Fitbit data has been processed
                     final boolean[] fitbitDataProcessed = {false};
 
                     FitbitAPI fb = new FitbitAPI(TokenData.FITBIT_TOKEN.getToken());
-                    // Use the callback to ensure Fitbit data is processed before generating the report
                     fb.updateUserProfile(userProfile, () -> {
                         Log.d("WeeklyReportActivity", "Fitbit data processing completed");
                         fitbitDataProcessed[0] = true;
@@ -230,7 +227,6 @@ public class PtFeedbackActivity extends BaseActivity {
 
                     executor.execute(() -> {
                         try {
-                            // Wait for Fitbit data to be processed with a timeout
                             int maxWaitTimeMs = 30000; // 30 seconds timeout
                             int waitedMs = 0;
                             while (!fitbitDataProcessed[0] && waitedMs < maxWaitTimeMs) {
@@ -247,7 +243,6 @@ public class PtFeedbackActivity extends BaseActivity {
                                 Log.w("WeeklyReportActivity", "Timed out waiting for Fitbit data, proceeding with report generation anyway");
                             }
 
-                            // Now that Fitbit data is processed, generate the report
                             String prepPrompt = "Consider that you will work at a medical report PDF document so please replace the data in the parentheses () with the values and replace the square brackets [] with your actual analysis based on the patient data provided in parentheses within each section. You should not have in the PDF [ ] or ( ) and neither text between them, all of them should be replaced with values or with ' ' if there is no value for that. For the { }, align the values before that like it is mentioned between { } and then remove the { } and the text in between. Use the data to provide meaningful insights and recommendations in a minimalist and useful way.";
 
                             String lstRep = userProfile.getLastMedicalReport();
@@ -300,13 +295,11 @@ public class PtFeedbackActivity extends BaseActivity {
                                             String message = patientName + " has submitted their weekly feedback. A new medical report is available.";
                                             dbHelper.saveNotification(doctor.getUserId(), message, "feedback_submitted");
 
-                                            // Reset the notification flag for this doctor so they'll see the notification next time they log in
                                             SharedPreferences notificationPrefs = getSharedPreferences("DOCTOR_NOTIFICATION_PREFS", MODE_PRIVATE);
                                             SharedPreferences.Editor editor = notificationPrefs.edit();
                                             editor.putBoolean("notification_shown_" + doctor.getUserId(), false);
                                             editor.apply();
 
-                                            // No system notification is shown - will be displayed as popup when doctor opens the app
                                         }
                                     }
 
@@ -646,7 +639,7 @@ public class PtFeedbackActivity extends BaseActivity {
         layoutParams.setMargins(24, 24, 24, 0);
         textInputLayout.setLayoutParams(layoutParams);
 
-        textInputLayout.setHint(disease.getName() +  "state?");
+        textInputLayout.setHint(disease.getName() +  " state?");
 
         textInputLayout.setBoxBackgroundMode(TextInputLayout.BOX_BACKGROUND_OUTLINE);
         textInputLayout.setBoxStrokeWidth(1);

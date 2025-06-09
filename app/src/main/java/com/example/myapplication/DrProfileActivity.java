@@ -155,7 +155,7 @@ public class DrProfileActivity extends BaseActivity {
                         dbHelper.assignPatientToDoctor(creatingDoctorId, patientIdFromCnp);
 
                         Snackbar.make(findViewById(android.R.id.content), 
-                            "Existing patient assigned to you and profile updated", 
+                            "Existing patient assigned to you",
                             Snackbar.LENGTH_SHORT).show();
                         return patientIdFromCnp;
                     }
